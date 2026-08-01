@@ -166,6 +166,54 @@ describe('chordsAtFret', () => {
     expect(labels).toContain('E'); // the E major triad is in there somewhere
     expect(labels.length).toBeGreaterThan(2);
   });
+
+  test('E9 no-pedals chords match documented grip practice (skip grips)', () => {
+    // Verified against the "Get A Grip" chart and Steel Guitar Forum grip
+    // threads: at one bar position with no pedals, E9 offers the E family,
+    // E7 via string 9's ♭7, and the V major triad on the chromatic strings.
+    const e9 = T('ps-e9-nashville');
+    const chords = chordsAtFret(e9.midi, 0);
+    const byName = Object.fromEntries(chords.map((c) => [chordLabel(c.match), c]));
+    // pedal-steel string numbers: string = 10 - index
+    const gripOf = (name: string) => byName[name]?.strings.map((i) => 10 - i).reverse().join('-');
+
+    expect(gripOf('E')).toBe('4-5-6'); // the canonical close major grip
+    expect(gripOf('B')).toBe('1-2-5'); // the documented V-chord grip (SGF p=2811048)
+    expect(gripOf('E7')).toBe('6-8-9-10'); // string 9 is "the flatted 7th, use for a 7th chord"
+    expect(byName['Emaj7']).toBeDefined(); // string 2's D♯ over a regular grip
+    expect(byName['Emaj9']).toBeDefined();
+    expect(byName['E9']).toBeDefined();
+    expect(byName['G♯m']).toBeDefined(); // "close E9 intervals make skipping necessary for triads"
+    expect(byName['Bm']).toBeDefined();
+    // Contiguous-only used to yield 5 chords here; grips give the real count.
+    expect(chords.length).toBeGreaterThanOrEqual(12);
+  });
+
+  test('picked skip-grips stay within the physical hand: ≤4 strings, span ≤7', () => {
+    for (const id of ['ps-e9-nashville', 'ps-c6-swing-jazz', 'c6', 'standard']) {
+      const t = T(id);
+      for (let f = 0; f <= 3; f++) {
+        chordsAtFret(t.midi, f).forEach((c) => {
+          const span = c.strings[c.strings.length - 1] - c.strings[0] + 1;
+          const skips = span - c.strings.length;
+          if (skips > 0) {
+            // a skipping grip is picked, not strummed: 3–4 fingers, span ≤ 7
+            expect(c.strings.length).toBeLessThanOrEqual(4);
+            expect(span).toBeLessThanOrEqual(7);
+          }
+        });
+      }
+    }
+  });
+
+  test('contiguous grips win ties — the easy grip names the chord', () => {
+    // C6's C major must stay the plain low-string triad, not a skip grip.
+    const c6 = T('c6');
+    const c = chordsAtFret(c6.midi, 0).find((x) => chordLabel(x.match) === 'C')!;
+    expect(c.strings).toEqual([0, 1, 2]);
+    const pos = findBarPositions(c6.midi, [0, 4, 7], 0).find((p) => p.fret === 0)!;
+    expect(pos.strings).toEqual([0, 1, 2]);
+  });
 });
 
 describe('findBarPositions', () => {

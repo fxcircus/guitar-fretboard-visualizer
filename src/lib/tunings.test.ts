@@ -80,12 +80,9 @@ describe('catalog integrity', () => {
   });
 
   test('exactly the expected tunings are chordless', () => {
-    // A handful of tunings name no chord on any adjacent string group, and for
-    // each that IS the tuning:
-    //   · six of the eight modal necks are scale ladders — six consecutive
-    //     scale steps, so no adjacent group ever stacks into a chord. (Lydian
-    //     and Dorian are the exceptions: their full stacks happen to spell D11
-    //     and F13.) These necks exist for Map view.
+    // Since grips may skip strings (real steel blocking technique), even the
+    // modal scale-ladder necks voice triads — C major is strings 1-3-5 of the
+    // white-key neck. Only genuinely chordless stacks remain:
     //   · Sonic Youth's Schizophrenia is an F♯ G A cluster matching no formula
     //   · Soundgarden's My Wave and the balalaika have only two pitch classes,
     //     and a chord needs three
@@ -95,18 +92,7 @@ describe('catalog integrity', () => {
       (t) => Array.from({ length: 12 }, (_, f) => chordsAtFret(t.midi, f)).flat().length === 0
     ).map((t) => t.id);
     expect(chordless.sort()).toEqual(
-      [
-        'white-keys',
-        'c-ionian',
-        'c-mixolydian',
-        'c-aeolian',
-        'c-phrygian',
-        'c-locrian',
-        'schizophrenia',
-        'soundg-wave',
-        'radio-everything',
-        'balalaika',
-      ].sort()
+      ['schizophrenia', 'soundg-wave', 'radio-everything', 'balalaika'].sort()
     );
   });
 

@@ -38,6 +38,26 @@ fret.
 Everything in this app comes out of that one model — which is why it works
 identically for a 3-string bağlama and a 10-string pedal steel.
 
+## Grips: which strings a chord may use
+
+A grip is not just a run of adjacent strings — steel players *block* the
+strings they skip (pick/palm blocking is named, taught technique), and the
+canonical vocabulary depends on it: the standard no-pedal E9 major grips are
+strings 3-4-5, 4-5-6, **5-6-8**, **6-8-10** and **4-6-10** (the "Get A Grip"
+chart: *"notice we are skipping 7, 9, 1, 2 since they are not part of major
+chord"*), and C6's workhorse triads are **9-6-4** and **8-5-3** (Steel Guitar
+Forum, "Basic C6th Chord Grips"; Herb Steiner's C6 essay). The V-major triad
+on E9's chromatic strings 1-2-5 is likewise documented practice.
+
+So the engine models grips as: **3–4 picked strings** (thumbpick plus 2–3
+fingerpicks) inside a **span of up to 7 consecutive strings**, skips blocked
+by hand — plus **contiguous runs of any size** for strums. That takes one E9
+bar position from 5 chords (contiguous-only) to the 15 a player actually has,
+including E7 via string 9's ♭7 and B major on 1-2-5, and it lets the modal
+scale-ladder necks voice their own diatonic triads (C major is strings 1-3-5
+of the white-key neck). Contiguous grips win naming ties, so the easy grip is
+always the one shown.
+
 ## What's in the catalog
 
 | Group | Count | |

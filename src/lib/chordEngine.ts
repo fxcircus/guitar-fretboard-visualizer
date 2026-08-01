@@ -171,16 +171,74 @@ export function identifyChord(pcs: number[], bassPc: number | null = null): Chor
   return identifyChords(pcs, bassPc)[0] ?? null;
 }
 
+// ── Grips ──────────────────────────────────────────────────────────────────
+// Real steel grips are NOT limited to adjacent strings: the picking hand
+// blocks the strings it skips (pick/palm blocking is named, taught technique).
+// The canonical E9 major grips are 3-4-5, 4-5-6, 5-6-8, 6-8-10 and 4-6-10
+// ("Get A Grip" chart — "notice we are skipping 7, 9, 1, 2 since they are not
+// part of major chord"), and C6's workhorse triads are 9-6-4 and 8-5-3
+// (Steel Guitar Forum, "Basic C6th Chord Grips"). Calibrated against that
+// practice: PICKED grips are 3–4 strings (thumbpick + 2–3 fingerpicks) inside
+// a span of up to 7 consecutive strings; anything larger is a STRUM, which
+// can only sweep contiguous strings.
+export const MAX_PICKED_GRIP_SIZE = 4;
+export const MAX_GRIP_SPAN = 7;
+
+/** Interior strings a grip skips (0 = contiguous). */
+export const gripSkips = (strings: number[]): number =>
+  strings[strings.length - 1] - strings[0] + 1 - strings.length;
+
+const GRIP_CACHE = new Map<number, number[][]>();
+
 /**
- * Every distinct chord available under a straight bar at `fret`, as
- * contiguous string groups (bar players pick adjacent strings).
+ * Every playable string group on an n-string neck, sorted most-compact-first
+ * (smallest, then fewest skips, tightest span, lowest start) so consumers that
+ * dedup by chord name land on the simplest grip.
+ */
+export function gripsFor(n: number): number[][] {
+  const hit = GRIP_CACHE.get(n);
+  if (hit) return hit;
+
+  const grips: number[][] = [];
+  // Contiguous runs of any size — close grips and strums.
+  for (let size = 3; size <= n; size++) {
+    for (let start = 0; start + size <= n; start++) {
+      grips.push(Array.from({ length: size }, (_, i) => start + i));
+    }
+  }
+  // Picked skip-grips: 3–4 strings whose span exceeds their size (≥1 skip).
+  for (let start = 0; start < n; start++) {
+    for (let end = start + 3; end < n && end - start + 1 <= MAX_GRIP_SPAN; end++) {
+      const span = end - start + 1;
+      if (span > 3) {
+        for (let m = start + 1; m < end; m++) grips.push([start, m, end]);
+      }
+      if (span > 4 && MAX_PICKED_GRIP_SIZE >= 4) {
+        for (let m1 = start + 1; m1 < end; m1++) {
+          for (let m2 = m1 + 1; m2 < end; m2++) grips.push([start, m1, m2, end]);
+        }
+      }
+    }
+  }
+  grips.sort(
+    (a, b) =>
+      a.length - b.length ||
+      gripSkips(a) - gripSkips(b) ||
+      a[a.length - 1] - a[0] - (b[b.length - 1] - b[0]) ||
+      a[0] - b[0]
+  );
+  GRIP_CACHE.set(n, grips);
+  return grips;
+}
+
+/**
+ * Every distinct chord available under a straight bar at `fret`, as playable
+ * string grips (see gripsFor — contiguous runs plus documented skip-grips).
  *
  * The full stack is emitted first (so it keeps its own name and isn't
- * relabelled by a sub-window), then the remaining sizes are scanned
- * SMALLEST-first, so each chord is shown as its most compact grip — a plain
- * triad wins over an incidental larger window that only matches because of an
- * octave-doubled string (e.g. Cyrus Hybrid's D lands on a clean 3-string grip,
- * not a 4-string one that repeats the doubled D).
+ * relabelled by a sub-group), then grips are scanned most-compact-first, so
+ * each chord is shown as its simplest grip — a plain contiguous triad wins
+ * over an incidental larger or skippier group.
  */
 export function chordsAtFret(tuningMidi: number[], fret: number): FretChord[] {
   const n = tuningMidi.length;
@@ -188,23 +246,21 @@ export function chordsAtFret(tuningMidi: number[], fret: number): FretChord[] {
   const results: FretChord[] = [];
   const seen = new Set<string>();
 
-  // sizes: full stack first, then 3, 4, …, n-1 (smallest grips win ties)
-  const sizes = [n, ...Array.from({ length: Math.max(0, n - 3) }, (_, i) => i + 3)];
-  for (const size of sizes) {
-    for (let start = 0; start + size <= n; start++) {
-      const groupMidi = tuningMidi.slice(start, start + size).map((m) => m + fret);
-      const bassPc = midiPc(Math.min(...groupMidi));
-      const match = identifyChord(groupMidi.map(midiPc), bassPc);
-      if (!match) continue;
-      const key = `${match.rootPc}:${match.suffix}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      results.push({
-        match,
-        strings: Array.from({ length: size }, (_, i) => start + i),
-        isFullStack: size === n,
-      });
-    }
+  const consider = (strings: number[], isFullStack: boolean) => {
+    const groupMidi = strings.map((s) => tuningMidi[s] + fret);
+    const bassPc = midiPc(Math.min(...groupMidi));
+    const match = identifyChord(groupMidi.map(midiPc), bassPc);
+    if (!match) return;
+    const key = `${match.rootPc}:${match.suffix}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    results.push({ match, strings, isFullStack });
+  };
+
+  consider(Array.from({ length: n }, (_, i) => i), true);
+  for (const strings of gripsFor(n)) {
+    if (strings.length === n) continue; // the full stack was considered first
+    consider(strings, false);
   }
   return results;
 }
@@ -243,46 +299,50 @@ export function findBarPositions(
   const n = tuningMidi.length;
 
   const positions: BarPosition[] = [];
+  const gripList = gripsFor(n);
   for (let fret = 0; fret <= maxFret; fret++) {
     let best: BarPosition | null = null;
-    // Scan every contiguous group directly (not the deduped chordsAtFret
-    // list) so a group the "sounding chord" logic would name for a different
-    // root — e.g. C6's G-A-C-E, named C6 but a full Am7 — is still found when
-    // it voices the target.
-    for (let size = n; size >= 3; size--) {
-      for (let start = 0; start + size <= n; start++) {
-        const strings = Array.from({ length: size }, (_, i) => start + i);
-        const groupPcs = strings.map((s) => midiPc(tuningMidi[s] + fret));
-        const distinct = new Set(groupPcs);
-        if (distinct.size < 3) continue;
-        if (!Array.from(distinct).every((pc) => target.has(pc))) continue;
-        if (!distinct.has(root)) continue;
+    let bestSkips = 0;
+    // Scan every grip directly (not the deduped chordsAtFret list) so a group
+    // the "sounding chord" logic would name for a different root — e.g. C6's
+    // G-A-C-E, named C6 but a full Am7 — is still found when it voices the
+    // target.
+    for (const strings of gripList) {
+      const groupPcs = strings.map((s) => midiPc(tuningMidi[s] + fret));
+      const distinct = new Set(groupPcs);
+      if (distinct.size < 3) continue;
+      if (!Array.from(distinct).every((pc) => target.has(pc))) continue;
+      if (!distinct.has(root)) continue;
 
-        // Must be a nameable chord rooted on the target root (not an arbitrary
-        // fragment of chord tones). Bass = the lowest-SOUNDING note (a pull or
-        // custom tuning can make a higher-index string sound lower), matching
-        // chordsAtFret so rootInBass stays correct.
-        const bassPc = midiPc(Math.min(...strings.map((s) => tuningMidi[s] + fret)));
-        const match = identifyChords(groupPcs, bassPc).find((m) => m.rootPc === root);
-        if (!match) continue;
+      // Must be a nameable chord rooted on the target root (not an arbitrary
+      // fragment of chord tones). Bass = the lowest-SOUNDING note (a pull or
+      // custom tuning can make a higher-index string sound lower), matching
+      // chordsAtFret so rootInBass stays correct.
+      const bassPc = midiPc(Math.min(...strings.map((s) => tuningMidi[s] + fret)));
+      const match = identifyChords(groupPcs, bassPc).find((m) => m.rootPc === root);
+      if (!match) continue;
 
-        const isFullTarget = Array.from(target).every((pc) => distinct.has(pc));
-        const rootInBass = bassPc === root;
-        const cand: BarPosition = { fret, strings, match, isFullTarget, rootInBass };
+      const isFullTarget = Array.from(target).every((pc) => distinct.has(pc));
+      const rootInBass = bassPc === root;
+      const skips = gripSkips(strings);
+      const cand: BarPosition = { fret, strings, match, isFullTarget, rootInBass };
 
-        // Best group at this fret: fuller coverage, then more strings, then
-        // root in the bass
-        if (
-          !best ||
-          (cand.isFullTarget && !best.isFullTarget) ||
-          (cand.isFullTarget === best.isFullTarget && cand.strings.length > best.strings.length) ||
-          (cand.isFullTarget === best.isFullTarget &&
-            cand.strings.length === best.strings.length &&
-            cand.rootInBass &&
-            !best.rootInBass)
-        ) {
-          best = cand;
-        }
+      // Best grip at this fret: fuller coverage, then the simplest hand
+      // (fewest skipped strings — contiguous is the easy grip), then more
+      // strings, then root in the bass.
+      if (
+        !best ||
+        (cand.isFullTarget !== best.isFullTarget && cand.isFullTarget) ||
+        (cand.isFullTarget === best.isFullTarget &&
+          (skips < bestSkips ||
+            (skips === bestSkips &&
+              (cand.strings.length > best.strings.length ||
+                (cand.strings.length === best.strings.length &&
+                  cand.rootInBass &&
+                  !best.rootInBass)))))
+      ) {
+        best = cand;
+        bestSkips = skips;
       }
     }
     if (best) positions.push(best);

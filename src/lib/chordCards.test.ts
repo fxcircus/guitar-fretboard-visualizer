@@ -77,12 +77,22 @@ describe('every tuning', () => {
   });
 
   test('chordless tunings get no cards instead of nonsense', () => {
-    for (const id of ['white-keys', 'schizophrenia', 'soundg-wave']) {
+    for (const id of ['schizophrenia', 'soundg-wave', 'radio-everything', 'balalaika']) {
       const { home, degrees, others } = cardsFor(id);
       expect(home).toBeNull();
       expect(degrees).toHaveLength(0);
       expect(others).toHaveLength(0);
     }
+  });
+
+  test('mode necks earn diatonic degree cards through skip grips', () => {
+    // A scale ladder can't bar a chord on adjacent strings, but picking
+    // strings 1-3-5 of the white-key neck IS a C major triad — so the modal
+    // necks now teach their own diatonic chords.
+    const { degrees } = cardsFor('white-keys');
+    expect(degrees.map((d) => d.roman)).toContain('I');
+    expect(degrees.map((d) => d.roman)).toContain('ii');
+    expect(degrees.map((d) => d.roman)).toContain('IV');
   });
 });
 
