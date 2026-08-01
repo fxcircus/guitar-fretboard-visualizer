@@ -9,13 +9,10 @@ import { darkTheme, lightTheme } from './theme';
 import {
   chordLabel,
   chordsAtFret,
-  displayNote,
   displayPitch,
-  identifyChords,
   midiPc,
   scanLabelsFor,
   type ChordMatch,
-  type ChordQuality,
 } from './lib/chordEngine';
 import {
   CUSTOM_MIDI_MAX,
@@ -146,46 +143,6 @@ const VolumeSlider = styled.input`
   cursor: pointer;
 `;
 
-const ChordNameBig = styled.span<{ $quality: ChordQuality | null }>`
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1.1;
-  color: ${({ $quality, theme }) => {
-    switch ($quality) {
-      case 'maj':
-        return theme.colors.primary;
-      case 'min':
-        return theme.colors.accent;
-      case 'dom':
-        return theme.colors.warning;
-      default:
-        return theme.colors.text;
-    }
-  }};
-`;
-
-const StrumBtn = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  margin-left: auto;
-  flex-shrink: 0;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 50%;
-  cursor: pointer;
-  background: transparent;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: 13px;
-
-  &:hover {
-    background: ${({ theme }) => `${theme.colors.primary}22`};
-    color: ${({ theme }) => theme.colors.primary};
-    border-color: ${({ theme }) => theme.colors.primary};
-  }
-`;
-
 const StringBox = styled.div`
   display: flex;
   flex-direction: column;
@@ -225,21 +182,6 @@ const KeyName = styled.span`
   font-size: ${({ theme }) => theme.fontSizes.sm};
   font-weight: 800;
   color: ${({ theme }) => theme.colors.accent};
-`;
-
-const SoundingRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.md};
-  padding-top: ${({ theme }) => theme.spacing.sm};
-  border-top: 1px solid ${({ theme }) => theme.colors.border};
-`;
-
-const SoundingInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
 `;
 
 const App: React.FC = () => {
@@ -420,25 +362,6 @@ const App: React.FC = () => {
   const activeCardKey = selected ? `${selected.match.rootPc}:${selected.match.suffix}` : null;
   const cardKey = (m: ChordMatch) => `${m.rootPc}:${m.suffix}`;
 
-  // The 6th/m7-style alias of the selected group ("C6 = Am7")
-  const alias = useMemo(() => {
-    if (!selected) return null;
-    const groupMidi = selected.strings.map((s) => tuning.midi[s] + state.barFret);
-    const other = identifyChords(
-      groupMidi.map(midiPc),
-      midiPc(Math.min(...groupMidi))
-    ).find((m) => m.rootPc !== selected.match.rootPc);
-    return other ? chordLabel(other, flats) : null;
-  }, [selected, tuning, state.barFret, flats]);
-
-  const soundingNotes = useMemo(
-    () =>
-      activeStringIdxs
-        .map((s) => displayNote(midiPc(tuning.midi[s] + state.barFret), flats))
-        .join(' · '),
-    [activeStringIdxs, tuning, state.barFret, flats]
-  );
-
   // ── Audio ────────────────────────────────────────────────────────────────
   const audioRef = useRef<FretboardAudio | null>(null);
   const [playingStrings, setPlayingStrings] = useState<Set<number>>(new Set());
@@ -476,15 +399,12 @@ const App: React.FC = () => {
     [audio, tuning, state.barFret]
   );
 
+  // Clicking a note plays JUST that note; the board's play button strums.
   const handleNoteClick = useCallback(
     (stringIdx: number, fret: number) => {
-      if (state.view === 'map') {
-        void audio.pluck(tuning.midi[stringIdx] + fret);
-        return;
-      }
-      strum(activeStringIdxs.includes(stringIdx) ? activeStringIdxs : [stringIdx]);
+      void audio.pluckString(stringIdx, tuning.midi[stringIdx] + fret);
     },
-    [state.view, audio, tuning, strum, activeStringIdxs]
+    [audio, tuning]
   );
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -688,31 +608,6 @@ const App: React.FC = () => {
             </Hint>
           )}
 
-          <SoundingRow>
-            <SoundingInfo>
-              <Label>
-                {state.view === 'map'
-                  ? `${tuningKey.root} ${tuningKey.scale} across the neck`
-                  : `Sounding — ${state.barFret === 0 ? 'open strings' : `bar at fret ${state.barFret}`}`}
-              </Label>
-              <ChordNameBig $quality={selected ? selected.match.quality : null}>
-                {selected ? chordLabel(selected.match, flats) : soundingNotes || '—'}
-              </ChordNameBig>
-              <Hint>
-                {alias ? `= ${alias} · ` : ''}
-                {selected
-                  ? `${selected.match.formulaName} · ${soundingNotes}`
-                  : 'no chord name for these strings'}
-              </Hint>
-            </SoundingInfo>
-            <StrumBtn
-              onClick={() => strum(activeStringIdxs)}
-              title="Strum the highlighted strings"
-              aria-label="Strum the highlighted strings"
-            >
-              ▶
-            </StrumBtn>
-          </SoundingRow>
         </Panel>
 
         <Fretboard
@@ -734,6 +629,7 @@ const App: React.FC = () => {
           pulled={pulled}
           baseSpellings={baseTuning.spellings}
           flats={flats}
+          onPlay={() => strum(activeStringIdxs)}
         />
       </Shell>
     </ThemeProvider>

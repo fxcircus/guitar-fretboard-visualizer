@@ -61,6 +61,8 @@ export interface FretboardProps {
   baseSpellings?: string[];
   /** Spell everything in flats. */
   flats?: boolean;
+  /** Strum the highlighted chord — renders a play button in the top-left corner. */
+  onPlay?: () => void;
 }
 
 const BoardScroll = styled.div`
@@ -87,6 +89,33 @@ const ScanRow = styled.div`
 const ScanSpacer = styled.div`
   width: ${LABEL_W}px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+// The board's one empty corner — above the string labels, left of the fret
+// numbers — holds the strum button.
+const PlayBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 50%;
+  cursor: pointer;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: 11px;
+  line-height: 1;
+
+  &:hover {
+    background: ${({ theme }) => `${theme.colors.primary}22`};
+    color: ${({ theme }) => theme.colors.primary};
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
 `;
 
 const ScanCell = styled.button<{ $active: boolean; $target: boolean }>`
@@ -333,6 +362,7 @@ const Fretboard: React.FC<FretboardProps> = ({
   pulled,
   baseSpellings,
   flats = false,
+  onPlay,
 }) => {
   const stringCount = midi.length;
   const frets = Array.from({ length: maxFret + 1 }, (_, f) => f);
@@ -443,7 +473,18 @@ const Fretboard: React.FC<FretboardProps> = ({
     <BoardScroll ref={scrollRef}>
       <Board style={{ width: boardW }}>
         <ScanRow>
-          <ScanSpacer />
+          <ScanSpacer>
+            {onPlay && (
+              <PlayBtn
+                type="button"
+                onClick={onPlay}
+                title="Strum the highlighted strings"
+                aria-label="Strum the highlighted strings"
+              >
+                ▶
+              </PlayBtn>
+            )}
+          </ScanSpacer>
           {frets.map((f) => {
             const isTarget = !!targetFrets?.has(f);
             const isDot = inlayFrets.includes(f) || doubleInlays.includes(f);

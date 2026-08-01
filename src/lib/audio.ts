@@ -167,7 +167,7 @@ export class FretboardAudio {
     });
   }
 
-  /** One note, at an arbitrary fret (used by the whole-neck map view). */
+  /** One note with no string attached (e.g. the volume-slider beep). */
   async pluck(midi: number, key = 'single'): Promise<void> {
     this.stopAll();
     const ctx = this.context();
@@ -180,6 +180,29 @@ export class FretboardAudio {
     }
     this.playVoice(midi, key, 1, ctx.currentTime);
     this.timeouts.push(window.setTimeout(() => this.stopVoice(key), CHORD_RING_MS));
+  }
+
+  /** One note on a specific string, with the string's visual pulse. */
+  async pluckString(stringIdx: number, midi: number): Promise<void> {
+    this.stopAll();
+    const ctx = this.context();
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.playVoice(midi, `s${stringIdx}`, 1, ctx.currentTime);
+    this.playing.add(stringIdx);
+    this.emit();
+    this.timeouts.push(
+      window.setTimeout(() => {
+        this.stopVoice(`s${stringIdx}`);
+        this.playing.delete(stringIdx);
+        this.emit();
+      }, CHORD_RING_MS)
+    );
   }
 
   dispose(): void {
