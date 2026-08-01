@@ -440,6 +440,23 @@ const App: React.FC = () => {
   const [soundOpen, setSoundOpen] = useState(false);
   const soundWrapRef = useRef<HTMLDivElement>(null);
 
+  // Cards play as you tap them — on by default; the fretboard's play button
+  // only exists while this is off. A device preference, like volume.
+  const [autoPlay, setAutoPlay] = useState(() => {
+    try {
+      return localStorage.getItem('gfv.autoplay') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('gfv.autoplay', autoPlay ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [autoPlay]);
+
   // The physical board (finish, inlays, bar style, detail toggles) — device
   // preference, persisted locally, from the Fretboard Redesign design project.
   const [boardPrefs, setBoardPrefs] = useState<BoardPrefs>(loadBoardPrefs);
@@ -658,14 +675,33 @@ const App: React.FC = () => {
     },
     [audio]
   );
-  // Silence anything ringing when the board changes underneath it.
+  // Silence anything ringing when the board changes underneath it — except
+  // right after an auto-played card moved the bar itself (the flag is set
+  // only when the click changes barFret, so it can never go stale).
+  const skipStopRef = useRef(false);
   useEffect(() => {
+    if (skipStopRef.current) {
+      skipStopRef.current = false;
+      return;
+    }
     audioRef.current?.stopAll();
   }, [baseSignature, state.barFret]);
 
   const strum = useCallback(
     (strings: number[]) => void audio.strum(tuning.midi, strings, state.barFret),
     [audio, tuning, state.barFret]
+  );
+
+  // Tapping a card snaps the bar to it; with auto-play on it also sounds it.
+  const handleCardClick = useCallback(
+    (card: ChordCard) => {
+      if (autoPlay) {
+        if (card.fret !== state.barFret) skipStopRef.current = true;
+        void audio.strum(tuning.midi, card.strings, card.fret);
+      }
+      snapToCard(card);
+    },
+    [autoPlay, audio, tuning, state.barFret, snapToCard]
   );
 
   // Clicking a note plays JUST that note; the board's play button strums.
@@ -717,7 +753,7 @@ const App: React.FC = () => {
       $out={out}
       $active={activeCardKey === cardKey(card.match)}
       aria-pressed={activeCardKey === cardKey(card.match)}
-      onClick={() => snapToCard(card)}
+      onClick={() => handleCardClick(card)}
       style={
         stagger
           ? { animationDelay: `${Math.min(stagger * (out ? 8 : 12), out ? 96 : 260)}ms` }
@@ -775,6 +811,14 @@ const App: React.FC = () => {
               </HeadBtn>
               {soundOpen && (
                 <SoundPop role="dialog" aria-label="Sound settings">
+                  <SwitchItem
+                    aria-pressed={autoPlay}
+                    onClick={() => setAutoPlay((a) => !a)}
+                    title="Chord cards sound the moment you tap them — no play button needed"
+                  >
+                    <SwitchTrack $on={autoPlay} />
+                    Play chords on tap
+                  </SwitchItem>
                   <Label>Tone</Label>
                   <Toggle role="group" aria-label="Synth voice" style={{ width: 'fit-content' }}>
                     {TONE_NAMES.map((t) => (
@@ -1089,7 +1133,7 @@ const App: React.FC = () => {
           pulled={pulled}
           baseSpellings={baseTuning.spellings}
           flats={flats}
-          onPlay={() => strum(activeStringIdxs)}
+          onPlay={autoPlay ? undefined : () => strum(activeStringIdxs)}
           board={boardPrefs}
         />
       </Shell>
