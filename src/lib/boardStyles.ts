@@ -62,6 +62,30 @@ export const FINISHES: Record<FinishName, Finish> = {
     edge: 'linear-gradient(180deg,#100d09,#1c1710)',
     ink: '#17150f',
   },
+  // Direction 1B "Shop drawing" — the board as a luthier's plate: ink on
+  // paper, strings as gauge-varied ink lines, the bar as an outlined
+  // silhouette with a dashed centerline.
+  paper: {
+    label: 'Shop drawing',
+    swatch: '#efe9dc',
+    mode: 'paper',
+    surface: '#f6f1e6',
+    grain: 'none',
+    grainOp: 0,
+    wire: '#17150f',
+    nut: '#17150f',
+    stringPlain: '#17150f',
+    stringWound: '#17150f',
+    stringCore: 'transparent',
+    inlay: '#17150f',
+    inlayBg: '#17150f',
+    inlayShadow: 'none',
+    ring: 'rgba(0,0,0,0.85)',
+    dimRing: 'rgba(23,21,15,0.4)',
+    dimInk: 'rgba(23,21,15,0.55)',
+    edge: 'transparent',
+    ink: '#17150f',
+  },
   maple: {
     label: 'Maple',
     mode: 'wood',
@@ -126,38 +150,14 @@ export const FINISHES: Record<FinishName, Finish> = {
     edge: '#080a0d',
     ink: '#17150f',
   },
-  // Direction 1B "Shop drawing" — the board as a luthier's plate: ink on
-  // paper, strings as gauge-varied ink lines, the bar as an outlined
-  // silhouette with a dashed centerline.
-  paper: {
-    label: 'Shop drawing',
-    swatch: '#efe9dc',
-    mode: 'paper',
-    surface: '#f6f1e6',
-    grain: 'none',
-    grainOp: 0,
-    wire: '#17150f',
-    nut: '#17150f',
-    stringPlain: '#17150f',
-    stringWound: '#17150f',
-    stringCore: 'transparent',
-    inlay: '#17150f',
-    inlayBg: '#17150f',
-    inlayShadow: 'none',
-    ring: 'rgba(0,0,0,0.85)',
-    dimRing: 'rgba(23,21,15,0.4)',
-    dimInk: 'rgba(23,21,15,0.55)',
-    edge: 'transparent',
-    ink: '#17150f',
-  },
 };
 
-export const INLAY_STYLES: Array<{ id: InlayName; label: string }> = [
-  { id: 'dots', label: 'Dots' },
-  { id: 'trapezoid', label: 'Trapezoid' },
-  { id: 'blocks', label: 'Blocks' },
-  { id: 'split', label: 'Split parallelogram' },
-  { id: 'suits', label: 'Card suits' },
+export const INLAY_STYLES: Array<{ id: InlayName; label: string; full: string }> = [
+  { id: 'dots', label: 'Dots', full: 'Dot inlays' },
+  { id: 'trapezoid', label: 'Trapezoid', full: 'Trapezoid inlays' },
+  { id: 'blocks', label: 'Blocks', full: 'Block inlays' },
+  { id: 'split', label: 'Split', full: 'Split parallelogram inlays' },
+  { id: 'suits', label: 'Suits', full: 'Card suit inlays' },
 ];
 
 export const BAR_STYLES: Array<{ id: BarStyleName; label: string; hint: string }> = [

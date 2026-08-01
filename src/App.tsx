@@ -177,8 +177,8 @@ const SoundPop = styled.div`
 `;
 
 const BoardPop = styled(SoundPop)`
-  width: min(430px, calc(100vw - 32px));
-  gap: 13px;
+  width: min(460px, calc(100vw - 32px));
+  gap: 12px;
 `;
 
 const SwatchDot = styled.span<{ $c: string }>`
@@ -187,6 +187,47 @@ const SwatchDot = styled.span<{ $c: string }>`
   border-radius: 50%;
   background: ${({ $c }) => $c};
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+`;
+
+// A labelled on/off switch — the Details row squeezes four of these into one
+// line where outlined chips used to wrap.
+const SwitchItem = styled.button<{ $disabled?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.text};
+  font-family: inherit;
+  font-size: ${({ theme }) => theme.fontSizes.xs};
+  font-weight: 500;
+  cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
+  opacity: ${({ $disabled }) => ($disabled ? 0.35 : 1)};
+  white-space: nowrap;
+`;
+
+const SwitchTrack = styled.span<{ $on: boolean }>`
+  position: relative;
+  width: 28px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: ${({ $on, theme }) => ($on ? theme.colors.primary : theme.colors.border)};
+  transition: background ${({ theme }) => theme.transitions.fast};
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: ${({ $on }) => ($on ? '14px' : '2px')};
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: ${({ theme }) => theme.colors.card};
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    transition: left ${({ theme }) => theme.transitions.fast};
+  }
 `;
 
 const VolumeSlider = styled.input`
@@ -644,60 +685,44 @@ const App: React.FC = () => {
                 <BoardPop role="dialog" aria-label="Board settings">
                   <Label>Board settings</Label>
                   <div>
-                    <Label as="span" style={{ opacity: 0.75 }}>Inlay</Label>
-                    <Row style={{ marginTop: 6 }}>
-                      {INLAY_STYLES.map((s) => (
-                        <Chip
-                          key={s.id}
-                          $active={boardPrefs.inlay === s.id}
-                          aria-pressed={boardPrefs.inlay === s.id}
-                          onClick={() => patchBoard({ inlay: s.id })}
-                          title={`${s.label} inlays`}
-                        >
-                          {s.label}
-                        </Chip>
-                      ))}
-                    </Row>
-                  </div>
-                  <div>
                     <Label as="span" style={{ opacity: 0.75 }}>Finish</Label>
-                    <Row style={{ marginTop: 6 }}>
+                    <Toggle role="group" aria-label="Finish" style={{ marginTop: 6, flexWrap: 'wrap', width: 'fit-content' }}>
                       {(Object.keys(FINISHES) as FinishName[]).map((k) => (
-                        <Chip
+                        <ToggleBtn
                           key={k}
                           $active={boardPrefs.finish === k}
                           aria-pressed={boardPrefs.finish === k}
                           onClick={() => patchBoard({ finish: k })}
                           title={`${FINISHES[k].label} board`}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                         >
                           <SwatchDot $c={FINISHES[k].swatch} />
                           {FINISHES[k].label}
-                        </Chip>
+                        </ToggleBtn>
                       ))}
-                    </Row>
+                    </Toggle>
                   </div>
                   <div>
-                    <Label as="span" style={{ opacity: 0.75 }}>Details</Label>
-                    <Row style={{ marginTop: 6 }}>
-                      <Chip $active={boardPrefs.grain} aria-pressed={boardPrefs.grain} onClick={() => patchBoard({ grain: !boardPrefs.grain })} title="Wood grain texture">
-                        Grain
-                      </Chip>
-                      <Chip $active={boardPrefs.wire} aria-pressed={boardPrefs.wire} onClick={() => patchBoard({ wire: !boardPrefs.wire })} title="Nut, fret wire and fret shadow">
-                        Nut &amp; frets
-                      </Chip>
-                      <Chip $active={boardPrefs.gauges} aria-pressed={boardPrefs.gauges} onClick={() => patchBoard({ gauges: !boardPrefs.gauges })} title="String gauge variation and sheen">
-                        Gauges
-                      </Chip>
-                      <Chip $active={boardPrefs.side} aria-pressed={boardPrefs.side} onClick={() => patchBoard({ side: !boardPrefs.side })} title="Fret markers on the neck edge">
-                        Side dots
-                      </Chip>
-                    </Row>
+                    <Label as="span" style={{ opacity: 0.75 }}>Inlay</Label>
+                    <Toggle role="group" aria-label="Inlay" style={{ marginTop: 6, flexWrap: 'wrap', width: 'fit-content' }}>
+                      {INLAY_STYLES.map((s) => (
+                        <ToggleBtn
+                          key={s.id}
+                          $active={boardPrefs.inlay === s.id}
+                          aria-pressed={boardPrefs.inlay === s.id}
+                          onClick={() => patchBoard({ inlay: s.id })}
+                          title={s.full}
+                        >
+                          {s.label}
+                        </ToggleBtn>
+                      ))}
+                    </Toggle>
                   </div>
                   <div>
                     <Label as="span" style={{ opacity: 0.75 }}>Bar</Label>
-                    <Row style={{ marginTop: 6 }}>
+                    <Toggle role="group" aria-label="Bar style" style={{ marginTop: 6, flexWrap: 'wrap', width: 'fit-content' }}>
                       {BAR_STYLES.map((s) => (
-                        <Chip
+                        <ToggleBtn
                           key={s.id}
                           $active={boardPrefs.barStyle === s.id}
                           aria-pressed={boardPrefs.barStyle === s.id}
@@ -705,8 +730,54 @@ const App: React.FC = () => {
                           title={s.hint}
                         >
                           {s.label}
-                        </Chip>
+                        </ToggleBtn>
                       ))}
+                    </Toggle>
+                  </div>
+                  <div>
+                    <Label as="span" style={{ opacity: 0.75 }}>Details</Label>
+                    <Row style={{ marginTop: 6, gap: 14, flexWrap: 'nowrap' }}>
+                      {(() => {
+                        // grain means nothing on grainless finishes (the shop
+                        // drawing and Flat UI)
+                        const noGrain = FINISHES[boardPrefs.finish].grain === 'none';
+                        return (
+                          <SwitchItem
+                            $disabled={noGrain}
+                            disabled={noGrain}
+                            aria-pressed={boardPrefs.grain && !noGrain}
+                            onClick={() => !noGrain && patchBoard({ grain: !boardPrefs.grain })}
+                            title={noGrain ? `No grain on a ${FINISHES[boardPrefs.finish].label} board` : 'Wood grain texture'}
+                          >
+                            Grain
+                            <SwitchTrack $on={boardPrefs.grain && !noGrain} />
+                          </SwitchItem>
+                        );
+                      })()}
+                      <SwitchItem
+                        aria-pressed={boardPrefs.wire}
+                        onClick={() => patchBoard({ wire: !boardPrefs.wire })}
+                        title="Nut, fret wire and fret shadow"
+                      >
+                        Nut &amp; frets
+                        <SwitchTrack $on={boardPrefs.wire} />
+                      </SwitchItem>
+                      <SwitchItem
+                        aria-pressed={boardPrefs.gauges}
+                        onClick={() => patchBoard({ gauges: !boardPrefs.gauges })}
+                        title="String gauge variation and sheen"
+                      >
+                        Gauges
+                        <SwitchTrack $on={boardPrefs.gauges} />
+                      </SwitchItem>
+                      <SwitchItem
+                        aria-pressed={boardPrefs.side}
+                        onClick={() => patchBoard({ side: !boardPrefs.side })}
+                        title="Fret markers on the neck edge"
+                      >
+                        Side dots
+                        <SwitchTrack $on={boardPrefs.side} />
+                      </SwitchItem>
                     </Row>
                   </div>
                 </BoardPop>
