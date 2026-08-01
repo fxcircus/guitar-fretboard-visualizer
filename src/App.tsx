@@ -776,36 +776,36 @@ const App: React.FC = () => {
               {soundOpen && (
                 <SoundPop role="dialog" aria-label="Sound settings">
                   <Label>Tone</Label>
-                  <Row role="group" aria-label="Synth voice">
+                  <Toggle role="group" aria-label="Synth voice" style={{ width: 'fit-content' }}>
                     {TONE_NAMES.map((t) => (
-                      <Chip
+                      <ToggleBtn
                         key={t}
                         $active={state.tone === t}
                         aria-pressed={state.tone === t}
                         onClick={() => patch({ tone: t as ToneName })}
-                        style={{ alignItems: 'center', gap: 6 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 5 }}
                       >
                         {TONE_ICONS[t]}
                         {TONES[t].label}
-                      </Chip>
+                      </ToggleBtn>
                     ))}
-                  </Row>
+                  </Toggle>
                   <Label>Play</Label>
-                  <Row role="group" aria-label="Chord delivery">
+                  <Toggle role="group" aria-label="Chord delivery" style={{ width: 'fit-content' }}>
                     {PLAY_MODE_NAMES.map((m) => (
-                      <Chip
+                      <ToggleBtn
                         key={m}
                         $active={state.mode === m}
                         aria-pressed={state.mode === m}
                         onClick={() => patch({ mode: m as PlayMode })}
                         title={PLAY_MODES[m].hint}
-                        style={{ alignItems: 'center', gap: 6 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 5 }}
                       >
                         {MODE_ICONS[m]}
                         {PLAY_MODES[m].label}
-                      </Chip>
+                      </ToggleBtn>
                     ))}
-                  </Row>
+                  </Toggle>
                   <Label>Volume</Label>
                   <VolumeSlider
                     type="range"

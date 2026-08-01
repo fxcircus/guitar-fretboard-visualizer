@@ -47,7 +47,7 @@ export const FINISHES: Record<FinishName, Finish> = {
     surface: 'linear-gradient(180deg,#4a2d1d 0%,#3a2216 55%,#2d1a11 100%)',
     grain:
       'repeating-linear-gradient(92deg,rgba(0,0,0,0.42) 0 1px,rgba(255,255,255,0.05) 1px 3px,rgba(0,0,0,0.24) 3px 7px,rgba(140,90,55,0.16) 7px 13px)',
-    grainOp: 0.55,
+    grainOp: 0.28,
     wire: 'linear-gradient(90deg,#5f666e,#98a1a9 42%,#767d85)',
     nut: 'linear-gradient(90deg,#cbbf9f,#f2e9cf,#bdb08e)',
     stringPlain: 'linear-gradient(180deg,#ffffff,#f0f4f8 30%,#98a1ab)',
@@ -93,7 +93,7 @@ export const FINISHES: Record<FinishName, Finish> = {
     surface: 'linear-gradient(180deg,#e3c085 0%,#d3ad70 55%,#c29a5d 100%)',
     grain:
       'repeating-linear-gradient(89deg,rgba(120,78,36,0.3) 0 1px,rgba(255,255,255,0.22) 1px 4px,rgba(120,78,36,0.14) 4px 9px)',
-    grainOp: 0.5,
+    grainOp: 0.25,
     wire: 'linear-gradient(90deg,#565c64,#8d959d 42%,#6d747c)',
     nut: 'linear-gradient(90deg,#b8ab88,#efe6cd,#ab9e7d)',
     stringPlain: 'linear-gradient(180deg,#7d8590,#4a5158 34%,#2f3439)',
@@ -114,7 +114,7 @@ export const FINISHES: Record<FinishName, Finish> = {
     swatch: '#1c1917',
     surface: 'linear-gradient(180deg,#221e1b 0%,#171412 55%,#100e0d 100%)',
     grain: 'repeating-linear-gradient(91deg,rgba(0,0,0,0.5) 0 2px,rgba(255,255,255,0.045) 2px 5px)',
-    grainOp: 0.45,
+    grainOp: 0.22,
     wire: 'linear-gradient(90deg,#636a72,#9ba4ac 42%,#7a8189)',
     nut: 'linear-gradient(90deg,#cdc2a4,#f4ecd4,#bfb392)',
     stringPlain: 'linear-gradient(180deg,#ffffff,#eff3f8 30%,#9aa3ad)',
