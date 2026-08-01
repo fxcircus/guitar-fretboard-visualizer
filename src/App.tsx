@@ -180,9 +180,18 @@ const Sub = styled.span`
 // Chord symbols are case-carrying (Am7 ≠ AM7), so they never go through the
 // uppercased `Label`.
 const KeyName = styled.span`
-  font-size: ${({ theme }) => theme.fontSizes.sm};
+  font-size: ${({ theme }) => theme.fontSizes.md};
   font-weight: 800;
   color: ${({ theme }) => theme.colors.accent};
+`;
+
+// A titled block inside the panel: small uppercase title, content beneath.
+const Section = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: ${({ theme }) => theme.spacing.sm};
+  border-top: 1px solid ${({ theme }) => `${theme.colors.border}66`};
 `;
 
 const App: React.FC = () => {
@@ -282,11 +291,16 @@ const App: React.FC = () => {
   // the same chord. It resets when the BASE tuning's pitch content changes —
   // guarded so a shared link's chip survives the first render.
   const baseSignature = baseTuning.midi.join(',');
+  // "+ N more" chords stay collapsed by default — the degree cards carry the
+  // musically useful set; the full list is one tap away.
+  const [othersOpen, setOthersOpen] = useState(false);
+
   const sigRef = useRef(baseSignature);
   useEffect(() => {
     if (sigRef.current === baseSignature) return;
     sigRef.current = baseSignature;
     patch({ chip: 0 });
+    setOthersOpen(false);
   }, [baseSignature, patch]);
 
   const selected = chords.length ? chords[Math.min(state.chip, chords.length - 1)] : null;
@@ -596,31 +610,53 @@ const App: React.FC = () => {
             </Row>
           )}
 
-          <Row>
-            <Label>Key</Label>
-            <KeyName>
-              {tuningKey.root} {tuningKey.scale}
-            </KeyName>
-            <Mono>{scaleInfo.core.join(' ')}</Mono>
-            <Hint>from the tuning — pick a different tuning to change it</Hint>
-          </Row>
-
-          {(cards.degrees.length > 0 || cards.others.length > 0) && (
-            <Row
-              role="group"
-              aria-label={`Chords this tuning can play, in ${tuningKey.root} ${tuningKey.scale}`}
-            >
-              {cards.degrees.map(renderCard)}
-              {cards.others.map(renderCard)}
+          <Section>
+            <Label>Scale</Label>
+            <Row style={{ alignItems: 'baseline' }}>
+              <KeyName>
+                {tuningKey.root} {tuningKey.scale}
+              </KeyName>
+              <Mono>{scaleInfo.core.join(' · ')}</Mono>
             </Row>
-          )}
-          {cards.degrees.length === 0 && cards.others.length === 0 && (
-            <Hint>
-              This tuning stacks no nameable chord — it is a scale ladder or a drone.{' '}
-              <strong>Map</strong> view shows what it is for.
-            </Hint>
-          )}
+          </Section>
 
+          <Section>
+            <Label>Chords</Label>
+            {cards.degrees.length === 0 && cards.others.length === 0 ? (
+              <Hint>
+                This tuning stacks no nameable chord — it is a scale ladder or a drone.{' '}
+                <strong>Map</strong> view shows what it is for.
+              </Hint>
+            ) : (
+              <Row
+                role="group"
+                aria-label={`Chords this tuning can play, in ${tuningKey.root} ${tuningKey.scale}`}
+              >
+                {cards.degrees.map(renderCard)}
+                {othersOpen
+                  ? cards.others.map(renderCard)
+                  : // collapsed: the one non-degree chord currently sounding
+                    // stays visible so the selection never vanishes
+                    cards.others
+                      .filter((c) => cardKey(c.match) === activeCardKey)
+                      .map(renderCard)}
+                {cards.others.length > 0 && (
+                  <Card
+                    onClick={() => setOthersOpen((o) => !o)}
+                    aria-expanded={othersOpen}
+                    title={
+                      othersOpen
+                        ? 'Show only the scale-degree chords'
+                        : `Show every chord this tuning can play (${cards.others.length} more)`
+                    }
+                  >
+                    {othersOpen ? '− less' : `+ ${cards.others.length} more`}
+                    <Sub>{othersOpen ? 'degrees only' : 'all chords'}</Sub>
+                  </Card>
+                )}
+              </Row>
+            )}
+          </Section>
         </Panel>
 
         <Fretboard

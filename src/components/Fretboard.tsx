@@ -9,7 +9,9 @@ const DOUBLE_INLAY_FRETS = [12, 24];
 // Fixed columns; the fret width is RESPONSIVE (measured from the container) so
 // the board fills whatever room it is given and scrolls when there isn't enough.
 const LABEL_W = 46;
-const OPEN_W = 34;
+// Wide enough for the largest marker (36px + breathing room) — a narrower open
+// column used to squeeze fret-0 markers into ovals.
+const OPEN_W = 40;
 const MIN_FRET_W = 30;
 const MAX_FRET_W = 72;
 const MIN_ROW_H = 26;
@@ -254,6 +256,9 @@ const Mark = styled.button<{ $kind: MarkKind; $isPlaying: boolean; $fill?: strin
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* a true circle: never let flex squeeze the width in a narrow column */
+  flex-shrink: 0;
+  aspect-ratio: 1;
   line-height: 1;
   border: none;
   padding: 0;
@@ -404,7 +409,8 @@ const Fretboard: React.FC<FretboardProps> = ({
     Math.min(MAX_FRET_W, Math.floor((room - 2 * BOARD_PAD_X - LABEL_W - OPEN_W) / maxFret))
   );
   const rowH = Math.round(Math.max(MIN_ROW_H, Math.min(MAX_ROW_H, fretW * 0.8)));
-  const markSize = Math.round(Math.min(38, fretW - 6, rowH - 2));
+  // Capped at OPEN_W - 4 so the marker fits the open column as a circle too.
+  const markSize = Math.round(Math.min(36, OPEN_W - 4, fretW - 6, rowH - 2));
   const noteFont = Math.round(Math.max(9, Math.min(16, markSize * 0.42)));
   const ivFont = Math.round(Math.max(7, Math.min(11, markSize * 0.3)));
   const boardW = LABEL_W + OPEN_W + maxFret * fretW;
