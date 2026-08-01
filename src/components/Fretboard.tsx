@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import { displayNote, intervalLabel, midiPc, type SlantPosition } from '../lib/chordEngine';
 import { DEGREE_INK, degreeColor, intervalColor } from '../lib/noteColors';
 
@@ -176,7 +176,7 @@ const StringLabel = styled.div<{ $pulled?: boolean }>`
   user-select: none;
 `;
 
-const Cell = styled.div<{ $isOpen: boolean; $isBar: boolean; $lineWidth: number }>`
+const Cell = styled.div<{ $isOpen: boolean; $lineWidth: number }>`
   position: relative;
   height: 100%;
   flex-shrink: 0;
@@ -201,25 +201,30 @@ const Cell = styled.div<{ $isOpen: boolean; $isBar: boolean; $lineWidth: number 
   /* nut after the open column */
   ${({ $isOpen, theme }) =>
     $isOpen ? `border-right: 3px solid ${theme.colors.textSecondary}55;` : ''}
+`;
 
-  /* the bar — a metal slug that adapts to the theme */
-  ${({ $isBar, theme }) =>
-    $isBar
-      ? `&::after {
-          content: '';
-          position: absolute;
-          left: 50%;
-          top: -2px;
-          bottom: -2px;
-          width: 8px;
-          transform: translateX(-50%);
-          border-radius: 3px;
-          z-index: 1;
-          background: linear-gradient(180deg, ${theme.colors.text}, ${theme.colors.textSecondary});
-          box-shadow: 0 0 9px ${theme.colors.text}55;
-          opacity: 0.9;
-        }`
-      : ''}
+// The bar — one metal slug for the whole board, so moving between frets is a
+// short SLIDE instead of a teleport.
+const BarSlug = styled.div`
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 8px;
+  border-radius: 3px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    ${({ theme }) => theme.colors.text},
+    ${({ theme }) => theme.colors.textSecondary}
+  );
+  box-shadow: 0 0 9px ${({ theme }) => `${theme.colors.text}55`};
+  opacity: 0.9;
+  transition: left 0.16s cubic-bezier(0.3, 0.9, 0.4, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 `;
 
 // Inlays are an overlay so they sit in the gaps between strings, not on a line.
@@ -243,6 +248,14 @@ const InlayDot = styled.div<{ $left: number; $top: number }>`
 `;
 
 type MarkKind = 'root' | 'chord' | 'scale' | 'slant' | 'dim';
+
+// Markers pop in as the bar arrives at a fret.
+const markIn = keyframes`
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+`;
 
 // Chord-tone and scale-degree markers are filled with their harmonic-function
 // color ($fill, see lib/noteColors.ts). The root additionally keeps its accent
@@ -305,6 +318,12 @@ const Mark = styled.button<{ $kind: MarkKind; $isPlaying: boolean; $fill?: strin
     transform ${({ theme }) => theme.transitions.fast},
     box-shadow ${({ theme }) => theme.transitions.fast},
     background ${({ theme }) => theme.transitions.fast};
+  animation: ${markIn} 0.14s ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+  }
 
   &:focus-visible {
     outline: 2px solid ${({ theme }) => theme.colors.accent};
@@ -532,6 +551,9 @@ const Fretboard: React.FC<FretboardProps> = ({
         </ScanRow>
 
         <StringArea>
+          {view === 'bar' && !slant && (
+            <BarSlug style={{ left: fretCenterX(barFret, fretW) - 4 }} aria-hidden="true" />
+          )}
           {view === 'bar' && slant && (
             <SlantSvg width={boardW} height={boardH} aria-hidden="true">
               <SlantBar
@@ -565,7 +587,6 @@ const Fretboard: React.FC<FretboardProps> = ({
                       key={f}
                       style={{ width: colW(f) }}
                       $isOpen={f === 0}
-                      $isBar={view === 'bar' && !slant && f === barFret}
                       $lineWidth={1 + (stringCount - 1 - s) * (stringCount > 6 ? 0.25 : 0.4)}
                       onClick={() => onBarFretChange(f)}
                     >

@@ -36,9 +36,17 @@ export interface ChordCard {
   roman?: string;
   /** 0-based scale degree, for harmonic-function coloring (see noteColors). */
   degree?: number;
+  /** The tuning's defining chord: every open string, strummed as-is. */
+  home?: boolean;
 }
 
 export interface ChordCards {
+  /**
+   * What all the open strings sound together — C6's C6, B11's B11 — always
+   * shown, never folded away. Null when a degree card already IS that chord
+   * (open D's full stack is its own I) or the stack names nothing.
+   */
+  home: ChordCard | null;
   degrees: ChordCard[];
   others: ChordCard[];
 }
@@ -61,6 +69,12 @@ export function collectChordCards(
 ): ChordCards {
   const taken = new Set<string>();
   const degrees: ChordCard[] = [];
+
+  // The home card: the full open stack, when it names a chord.
+  const fullStack = chordsAtFret(tuningMidi, 0).find((c) => c.isFullStack);
+  let home: ChordCard | null = fullStack
+    ? { match: fullStack.match, fret: 0, strings: fullStack.strings, home: true }
+    : null;
 
   // Diatonic triads are only well-defined for 7-note scales, where each
   // degree's index-stack is a real tertian triad rooted on tonePcs[0].
@@ -88,6 +102,12 @@ export function collectChordCards(
     });
   }
 
+  // A degree card that already IS the home chord (open D's full stack is its
+  // own I at fret 0) makes the home card redundant; otherwise the home chord
+  // is pulled out of "others" so it can never be folded away.
+  if (home && taken.has(keyOf(home.match))) home = null;
+  if (home) taken.add(keyOf(home.match));
+
   // Everything else the tuning can sound, lowest fret first. The shapes
   // repeat at every fret (a bar transposes), so scanning 0..11 once finds
   // each chord name exactly once.
@@ -113,5 +133,5 @@ export function collectChordCards(
     return a.match.suffix.localeCompare(b.match.suffix);
   });
 
-  return { degrees, others };
+  return { home, degrees, others };
 }

@@ -19,11 +19,13 @@ const cardsFor = (id: string): ChordCards => {
 };
 
 describe('every tuning', () => {
-  test('no chord appears twice across degrees and others', () => {
+  test('no chord appears twice across home, degrees and others', () => {
     TUNINGS.forEach((t) => {
       const k = deriveKey(t);
-      const { degrees, others } = collectChordCards(t.midi, k.notes, k.rootPc);
-      const keys = [...degrees, ...others].map((c) => `${c.match.rootPc}:${c.match.suffix}`);
+      const { home, degrees, others } = collectChordCards(t.midi, k.notes, k.rootPc);
+      const keys = [...(home ? [home] : []), ...degrees, ...others].map(
+        (c) => `${c.match.rootPc}:${c.match.suffix}`
+      );
       expect({ id: t.id, dup: keys.length - new Set(keys).size }).toEqual({ id: t.id, dup: 0 });
     });
   });
@@ -31,8 +33,8 @@ describe('every tuning', () => {
   test('every fret is canonical: 0..11, never the fret-12 echo', () => {
     TUNINGS.forEach((t) => {
       const k = deriveKey(t);
-      const { degrees, others } = collectChordCards(t.midi, k.notes, k.rootPc);
-      [...degrees, ...others].forEach((c) => {
+      const { home, degrees, others } = collectChordCards(t.midi, k.notes, k.rootPc);
+      [...(home ? [home] : []), ...degrees, ...others].forEach((c) => {
         expect(c.fret).toBeGreaterThanOrEqual(0);
         expect(c.fret).toBeLessThanOrEqual(POSITION_MAX_FRET);
         expect(c.strings.length).toBeGreaterThanOrEqual(3);
@@ -43,8 +45,8 @@ describe('every tuning', () => {
   test('every card is real: its grip sounds only tones of the named chord, rooted right', () => {
     TUNINGS.forEach((t) => {
       const k = deriveKey(t);
-      const { degrees, others } = collectChordCards(t.midi, k.notes, k.rootPc);
-      [...degrees, ...others].forEach((c) => {
+      const { home, degrees, others } = collectChordCards(t.midi, k.notes, k.rootPc);
+      [...(home ? [home] : []), ...degrees, ...others].forEach((c) => {
         const pcs = new Set(c.strings.map((s) => midiPc(t.midi[s] + c.fret)));
         const chordPcs = new Set(c.match.intervals.map((i) => (c.match.rootPc + i) % 12));
         pcs.forEach((pc) => expect(chordPcs.has(pc)).toBe(true));
@@ -53,9 +55,31 @@ describe('every tuning', () => {
     });
   });
 
+  test('the home card is the full open stack whenever it names a chord', () => {
+    TUNINGS.forEach((t) => {
+      const k = deriveKey(t);
+      const { home, degrees } = collectChordCards(t.midi, k.notes, k.rootPc);
+      if (home) {
+        expect(home.fret).toBe(0);
+        expect(home.strings).toHaveLength(t.midi.length); // every string
+        expect(home.home).toBe(true);
+      } else {
+        // no home card means either a chordless stack, or a degree card at
+        // fret 0 already IS that chord (open D's full stack is its own I)
+        const fullNames = chordsAtFret(t.midi, 0)
+          .filter((c) => c.isFullStack)
+          .map((c) => `${c.match.rootPc}:${c.match.suffix}`);
+        const degreeKeys = new Set(degrees.map((c) => `${c.match.rootPc}:${c.match.suffix}`));
+        const covered = fullNames.length === 0 || fullNames.some((n) => degreeKeys.has(n));
+        expect({ id: t.id, covered }).toEqual({ id: t.id, covered: true });
+      }
+    });
+  });
+
   test('chordless tunings get no cards instead of nonsense', () => {
     for (const id of ['white-keys', 'schizophrenia', 'soundg-wave']) {
-      const { degrees, others } = cardsFor(id);
+      const { home, degrees, others } = cardsFor(id);
+      expect(home).toBeNull();
       expect(degrees).toHaveLength(0);
       expect(others).toHaveLength(0);
     }
@@ -63,7 +87,14 @@ describe('every tuning', () => {
 });
 
 describe('C6 — the reference case', () => {
-  const { degrees, others } = cardsFor('c6');
+  const { home, degrees, others } = cardsFor('c6');
+
+  test('the home card IS the C6 the tuning is named for, out of the box', () => {
+    expect(home).not.toBeNull();
+    expect(chordLabel(home!.match)).toBe('C6');
+    expect(home!.fret).toBe(0);
+    expect(home!.strings).toEqual([0, 1, 2, 3, 4, 5]); // strum everything
+  });
 
   test('six voicable degrees, vii° hidden (C6 has no diminished grip)', () => {
     expect(degrees.map((d) => d.roman)).toEqual(['I', 'ii', 'iii', 'IV', 'V', 'vi']);
@@ -74,12 +105,13 @@ describe('C6 — the reference case', () => {
     expect(byRoman.vi.fret).toBe(0); // Am open — the relative minor under the same bar
   });
 
-  test('others hold exactly the rest: 12 sixths + 9 majors + 9 minors', () => {
-    // C6's shapes are {6th, major, minor} at every fret. Three majors and
-    // three minors are claimed by the degrees, so:
-    expect(others).toHaveLength(12 + 9 + 9);
+  test('others hold exactly the rest: 11 sixths + 9 majors + 9 minors', () => {
+    // C6's shapes are {6th, major, minor} at every fret. C6 itself is the
+    // home card, three majors and three minors are claimed by degrees, so:
+    expect(others).toHaveLength(11 + 9 + 9);
     const labels = others.map((c) => chordLabel(c.match));
-    expect(labels).toContain('C6');
+    expect(labels).not.toContain('C6'); // promoted to the home card
+    expect(labels).toContain('C♯6'); // the other sixths stay here
     expect(labels).toContain('F♯'); // an out-of-key major — available, so shown
     expect(labels).not.toContain('C'); // taken by degree I
     expect(labels).not.toContain('Dm'); // taken by degree ii
@@ -100,10 +132,10 @@ describe('spot checks across the catalog', () => {
     expect(others).toHaveLength(9); // 12 majors minus the three degree majors
   });
 
-  test('B11 exposes its famous chord goldmine as cards', () => {
-    const { degrees, others } = cardsFor('b11');
+  test('B11 exposes its famous chord goldmine as cards, B11 itself at home', () => {
+    const { home, degrees, others } = cardsFor('b11');
+    expect(chordLabel(home!.match)).toBe('B11');
     const all = [...degrees, ...others].map((c) => chordLabel(c.match));
-    expect(all).toContain('B11');
     expect(all).toContain('B7');
     expect(all).toContain('B9');
     expect(all).toContain('F♯m');

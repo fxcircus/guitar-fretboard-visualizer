@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import styled, { ThemeProvider, createGlobalStyle } from 'styled-components';
+import styled, { ThemeProvider, createGlobalStyle, keyframes } from 'styled-components';
 
 import Fretboard from './components/Fretboard';
 import TuningPicker from './components/TuningPicker';
@@ -164,11 +164,24 @@ const StringVal = styled.div`
   line-height: 1.15;
 `;
 
+const cardIn = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.96);
+  }
+`;
+
 const Card = styled(Chip)`
   flex-direction: column;
   align-items: center;
   gap: 1px;
   min-width: 48px;
+  /* pop in on mount — expanding "+ N more" cascades via animation-delay */
+  animation: ${cardIn} 0.18s ease backwards;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 `;
 
 const Sub = styled.span`
@@ -455,16 +468,23 @@ const App: React.FC = () => {
 
   const theme = themeName === 'dark' ? darkTheme : lightTheme;
 
-  const renderCard = (card: ChordCard) => (
+  // `stagger` cascades the pop-in when a batch of cards mounts at once.
+  const renderCard = (card: ChordCard, stagger = 0) => (
     <Card
-      key={`${card.roman ?? ''}${cardKey(card.match)}`}
+      key={`${card.home ? 'home' : (card.roman ?? '')}${cardKey(card.match)}`}
       $active={activeCardKey === cardKey(card.match)}
       aria-pressed={activeCardKey === cardKey(card.match)}
       onClick={() => snapToCard(card)}
-      title={`${chordLabel(card.match, flats)} — bar at fret ${card.fret}, strings ${
-        stringCount - card.strings[0]
-      }–${stringCount - card.strings[card.strings.length - 1]}`}
+      style={stagger ? { animationDelay: `${Math.min(stagger * 12, 260)}ms` } : undefined}
+      title={
+        card.home
+          ? `${chordLabel(card.match, flats)} — every open string, strummed as-is`
+          : `${chordLabel(card.match, flats)} — bar at fret ${card.fret}, strings ${
+              stringCount - card.strings[0]
+            }–${stringCount - card.strings[card.strings.length - 1]}`
+      }
     >
+      {card.home && <Sub>open</Sub>}
       {card.roman && (
         // Roman numeral tinted by harmonic function — tonic green,
         // subdominant blue, dominant orange (the VG-800 Chords scheme).
@@ -622,7 +642,7 @@ const App: React.FC = () => {
 
           <Section>
             <Label>Chords</Label>
-            {cards.degrees.length === 0 && cards.others.length === 0 ? (
+            {!cards.home && cards.degrees.length === 0 && cards.others.length === 0 ? (
               <Hint>
                 This tuning stacks no nameable chord — it is a scale ladder or a drone.{' '}
                 <strong>Map</strong> view shows what it is for.
@@ -632,14 +652,15 @@ const App: React.FC = () => {
                 role="group"
                 aria-label={`Chords this tuning can play, in ${tuningKey.root} ${tuningKey.scale}`}
               >
-                {cards.degrees.map(renderCard)}
+                {cards.home && renderCard(cards.home)}
+                {cards.degrees.map((c) => renderCard(c))}
                 {othersOpen
-                  ? cards.others.map(renderCard)
+                  ? cards.others.map((c, i) => renderCard(c, i + 1))
                   : // collapsed: the one non-degree chord currently sounding
                     // stays visible so the selection never vanishes
                     cards.others
                       .filter((c) => cardKey(c.match) === activeCardKey)
-                      .map(renderCard)}
+                      .map((c) => renderCard(c))}
                 {cards.others.length > 0 && (
                   <Card
                     onClick={() => setOthersOpen((o) => !o)}
