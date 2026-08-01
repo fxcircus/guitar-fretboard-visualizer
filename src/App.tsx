@@ -24,6 +24,7 @@ import {
 import { applyPulls, normalizePulls, resolveTuning } from './lib/tuningState';
 import { deriveKey } from './lib/keyFromTuning';
 import { collectChordCards, type ChordCard } from './lib/chordCards';
+import { functionColor } from './lib/noteColors';
 import { noteToPitchClass } from './lib/musicTheory';
 import { FretboardAudio, TONES, TONE_NAMES, type ToneName } from './lib/audio';
 import {
@@ -450,7 +451,19 @@ const App: React.FC = () => {
         stringCount - card.strings[0]
       }–${stringCount - card.strings[card.strings.length - 1]}`}
     >
-      {card.roman && <Sub>{card.roman}</Sub>}
+      {card.roman && (
+        // Roman numeral tinted by harmonic function — tonic green,
+        // subdominant blue, dominant orange (the VG-800 Chords scheme).
+        <Sub
+          style={
+            card.degree != null
+              ? { color: functionColor(card.degree), fontWeight: 700 }
+              : undefined
+          }
+        >
+          {card.roman}
+        </Sub>
+      )}
       {chordLabel(card.match, flats)}
       <Sub>fret {card.fret}</Sub>
     </Card>

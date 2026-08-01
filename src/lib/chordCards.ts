@@ -34,6 +34,8 @@ export interface ChordCard {
   strings: number[];
   /** Set on diatonic degree cards ("ii", "V", …). */
   roman?: string;
+  /** 0-based scale degree, for harmonic-function coloring (see noteColors). */
+  degree?: number;
 }
 
 export interface ChordCards {
@@ -63,21 +65,27 @@ export function collectChordCards(
   // Diatonic triads are only well-defined for 7-note scales, where each
   // degree's index-stack is a real tertian triad rooted on tonePcs[0].
   if (keyNotes.length >= 7) {
-    for (const deg of deriveScaleChords(keyNotes)) {
+    deriveScaleChords(keyNotes).forEach((deg, degreeIndex) => {
       const voicable =
         deg.triadName !== null &&
         deg.quality !== null &&
         deg.quality !== 'slash' &&
         new Set(deg.tonePcs).size === 3;
-      if (!voicable) continue;
+      if (!voicable) return;
       // Lowest playable fret — stable across bar moves, never the fret-12 echo.
       const pos = findBarPositions(tuningMidi, deg.tonePcs, deg.tonePcs[0], POSITION_MAX_FRET)[0];
-      if (!pos) continue; // this tuning can't bar it → no card at all
+      if (!pos) return; // this tuning can't bar it → no card at all
       const key = keyOf(pos.match);
-      if (taken.has(key)) continue;
+      if (taken.has(key)) return;
       taken.add(key);
-      degrees.push({ match: pos.match, fret: pos.fret, strings: pos.strings, roman: deg.roman });
-    }
+      degrees.push({
+        match: pos.match,
+        fret: pos.fret,
+        strings: pos.strings,
+        roman: deg.roman,
+        degree: degreeIndex,
+      });
+    });
   }
 
   // Everything else the tuning can sound, lowest fret first. The shapes

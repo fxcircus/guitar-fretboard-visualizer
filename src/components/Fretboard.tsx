@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { displayNote, intervalLabel, midiPc, type SlantPosition } from '../lib/chordEngine';
+import { DEGREE_INK, degreeColor, intervalColor } from '../lib/noteColors';
 
 const INLAY_FRETS = [3, 5, 7, 9, 15, 17, 19, 21];
 const DOUBLE_INLAY_FRETS = [12, 24];
@@ -241,7 +242,11 @@ const InlayDot = styled.div<{ $left: number; $top: number }>`
 
 type MarkKind = 'root' | 'chord' | 'scale' | 'slant' | 'dim';
 
-const Mark = styled.button<{ $kind: MarkKind; $isPlaying: boolean }>`
+// Chord-tone and scale-degree markers are filled with their harmonic-function
+// color ($fill, see lib/noteColors.ts). The root additionally keeps its accent
+// ring, so it reads even for color-blind players; out-of-chord markers stay
+// hollow and dashed.
+const Mark = styled.button<{ $kind: MarkKind; $isPlaying: boolean; $fill?: string }>`
   position: relative;
   z-index: 2;
   border-radius: 50%;
@@ -254,8 +259,8 @@ const Mark = styled.button<{ $kind: MarkKind; $isPlaying: boolean }>`
   padding: 0;
   cursor: pointer;
   user-select: none;
-  background: ${({ $kind, $isPlaying, theme }) => {
-    if ($isPlaying) return theme.colors.error;
+  background: ${({ $kind, $fill, theme }) => {
+    if ($fill) return $fill;
     switch ($kind) {
       case 'root':
         return theme.colors.secondary;
@@ -271,8 +276,6 @@ const Mark = styled.button<{ $kind: MarkKind; $isPlaying: boolean }>`
       case 'root':
       case 'slant':
         return `2px solid ${theme.colors.accent}`;
-      case 'scale':
-        return `1px solid ${theme.colors.accent}aa`;
       case 'dim':
         return `1px dashed ${theme.colors.textSecondary}66`;
       default:
@@ -280,20 +283,22 @@ const Mark = styled.button<{ $kind: MarkKind; $isPlaying: boolean }>`
     }
   }};
   outline-offset: ${({ $kind }) => ($kind === 'root' || $kind === 'slant' ? '1px' : '0')};
-  color: ${({ $kind, theme }) => {
+  color: ${({ $kind, $fill, theme }) => {
+    if ($fill) return DEGREE_INK;
     if ($kind === 'dim') return `${theme.colors.textSecondary}aa`;
     if ($kind === 'scale') return theme.colors.text;
     return theme.colors.buttonText;
   }};
-  box-shadow: ${({ $kind, $isPlaying, theme }) =>
+  box-shadow: ${({ $kind, $isPlaying, $fill, theme }) =>
     $isPlaying
-      ? `0 0 10px ${theme.colors.error}`
-      : $kind === 'dim' || $kind === 'scale'
+      ? `0 0 12px ${$fill ?? theme.colors.error}`
+      : $kind === 'dim' || ($kind === 'scale' && !$fill)
         ? 'none'
         : '0 2px 4px rgba(0, 0, 0, 0.3)'};
-  transform: ${({ $isPlaying }) => ($isPlaying ? 'scale(1.15)' : 'scale(1)')};
+  transform: ${({ $isPlaying }) => ($isPlaying ? 'scale(1.18)' : 'scale(1)')};
   transition:
     transform ${({ theme }) => theme.transitions.fast},
+    box-shadow ${({ theme }) => theme.transitions.fast},
     background ${({ theme }) => theme.transitions.fast};
 
   &:focus-visible {
@@ -338,6 +343,8 @@ interface Marker {
   note: string;
   label: string;
   aria: string;
+  /** Harmonic-function fill (see lib/noteColors.ts); undefined = theme default. */
+  fill?: string;
 }
 
 const Fretboard: React.FC<FretboardProps> = ({
@@ -415,7 +422,7 @@ const Fretboard: React.FC<FretboardProps> = ({
   const markerAt = (s: number, f: number): Marker | null => {
     const pc = midiPc(midi[s] + f);
 
-    // Map view: every scale tone across the whole neck.
+    // Map view: every scale tone across the whole neck, colored by degree.
     if (view === 'map') {
       if (!scalePcs?.has(pc)) return null;
       const isKeyRoot = keyRootPc != null && pc === keyRootPc;
@@ -424,6 +431,7 @@ const Fretboard: React.FC<FretboardProps> = ({
         kind: isKeyRoot ? 'root' : 'scale',
         note: displayNote(pc, flats),
         label: degree,
+        fill: degree ? degreeColor(degree) : undefined,
         aria: `${displayNote(pc, flats)}, scale degree ${degree} — ${stringName(s)}, fret ${f}`,
       };
     }
@@ -450,18 +458,22 @@ const Fretboard: React.FC<FretboardProps> = ({
         kind: !inScale ? 'dim' : isKeyRoot ? 'root' : 'scale',
         note: displayNote(pc, flats),
         label: inScale ? degree : '',
+        fill: inScale && degree ? degreeColor(degree) : undefined,
         aria: `${displayNote(pc, flats)}${
           inScale ? `, scale degree ${degree}` : ', not in key'
         } — ${stringName(s)}, fret ${f}`,
       };
     }
 
+    // Bar view: chord tones colored by their function in the chord
+    // (root red, 3rd orange, 5th lime, 7th green, 9 blue, 4/6 purple).
     const isActive = activeStrings === null || activeStrings.has(s);
     const interval = rootPc !== null ? intervalLabel((pc - rootPc + 12) % 12, rootHasFlat7) : '';
     return {
       kind: !isActive ? 'dim' : rootPc !== null && pc === rootPc ? 'root' : 'chord',
       note: displayNote(pc, flats),
       label: interval,
+      fill: isActive && interval ? intervalColor(interval) : undefined,
       aria: `${displayNote(pc, flats)}${interval ? `, ${interval}` : ''} — ${stringName(s)}, fret ${f}`,
     };
   };
@@ -556,6 +568,7 @@ const Fretboard: React.FC<FretboardProps> = ({
                           type="button"
                           style={{ width: markSize, height: markSize }}
                           $kind={m.kind}
+                          $fill={m.fill}
                           $isPlaying={playingStrings.has(s) && (view === 'map' ? f === barFret : true)}
                           onClick={(e) => {
                             e.stopPropagation();
