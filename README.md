@@ -107,6 +107,27 @@ integration seam for the planned merge into the
 [VG-800 controller](https://github.com/fxcircus/vg800_midi_control), where real
 pedals exist.
 
+## The steel tone
+
+The default **Steel** voice is a physically-modelled string bank, not an
+oscillator. Ten Extended Karplus-Strong strings (after Julius O. Smith's EKS)
+run in an AudioWorklet (`src/lib/steel-processor.js`): a delay-line loop with
+linear-phase FIR damping, frequency-independent 6 s sustain, a 4th-order
+Lagrange fractional-delay read (stable under the gliding pitch of the bar
+scoop and the delayed-onset 5.7 Hz bar vibrato), and a velocity-shaped noise
+burst with a pick-position comb for the pluck.
+
+The bank feeds a steel amp bus (`src/lib/steelEngine.ts`): pickup resonance,
+a pedal-steel compressor squeeze, a blackface tone stack, subtle stereo
+chorus (the shimmer), one quiet echo repeat, and a generated spring-reverb
+impulse — no audio assets, the whole tone is code.
+
+The model is verified objectively with OfflineAudioContext renders: pitch
+within ±0.5 cents from 110–880 Hz, per-harmonic decay (trebles die before the
+fundamental, as on a real string), a 6-note chord losing only ~8 dB over two
+seconds of ring, and the pick transient surviving the compressor. Browsers
+without AudioWorklet fall back to the plain oscillator voices ('Sine'/'Saw').
+
 ## Sharing
 
 The whole board lives in the URL: tuning, bar position, selected grip, view,
@@ -157,7 +178,9 @@ src/lib/
   keyFromTuning.ts derives the key from the tuning
   copedents.ts     pedal / knee-lever sets (parked, for the VG-800 merge)
   musicTheory.ts   note spelling, scales, diatonic chords
-  audio.ts         Web Audio voices, with the bar scoop
+  audio.ts         the voice engine: routes to the steel bank or oscillators
+  steel-processor.js  10-voice Extended Karplus-Strong string bank (AudioWorklet)
+  steelEngine.ts   the steel amp bus: pickup, squeeze, tone stack, shimmer
   chordCards.ts    the card surface: every playable chord, degrees first
   appState.ts      URL and localStorage round-tripping
 src/components/

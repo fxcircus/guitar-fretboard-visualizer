@@ -1,13 +1,20 @@
 /**
- * A small Web Audio voice engine for the fretboard.
+ * The fretboard's voice engine.
  *
  * Deliberately synthesised rather than sampled: the app stays a single static
  * bundle with no assets to fetch, which is what makes it deployable anywhere.
- * The signature move is the *bar scoop* — every note slides in from just under
- * pitch, which is what makes an oscillator read as a steel rather than a beep.
+ *
+ * The default 'steel' tone is a physically-modelled string bank — Extended
+ * Karplus-Strong in an AudioWorklet (see steel-processor.js) through a steel
+ * amp bus (see steelEngine.ts): only a plucked-string model gives the
+ * per-harmonic decay (bright pick settling into a singing sustain) that makes
+ * a note read as a real instrument. 'sine' and 'saw' remain as plain
+ * oscillator voices, and double as the fallback when AudioWorklet is
+ * unavailable.
  */
+import { createSteelGraph, type SteelGraph } from './steelEngine';
 
-export type ToneName = 'sine' | 'saw';
+export type ToneName = 'steel' | 'sine' | 'saw';
 
 export interface Tone {
   label: string;
@@ -19,8 +26,10 @@ export interface Tone {
   detune?: number;
 }
 
-// Named for what they are: a plain sine, and a sawtooth through a low-pass.
+// 'steel' is the modelled string; its oscillator fields are only the fallback
+// voice for browsers without AudioWorklet.
 export const TONES: Record<ToneName, Tone> = {
+  steel: { label: 'Steel', osc: 'sawtooth', filterHz: 3000, filterQ: 2, scoop: 0.972 },
   sine: { label: 'Sine', osc: 'sine', filterHz: 6000, filterQ: 0.5, scoop: 1 },
   saw: { label: 'Saw', osc: 'sawtooth', filterHz: 1500, filterQ: 1.2, scoop: 0.965 },
 };
@@ -40,9 +49,20 @@ export class FretboardAudio {
   private ctx: AudioContext | null = null;
   private voices = new Map<string, Voice>();
   private timeouts: number[] = [];
+  private steel: SteelGraph | null = null;
+  private steelInit: Promise<SteelGraph | null> | null = null;
+  private steelFailed = false;
+  private _volume = 0.7;
 
-  tone: ToneName = 'sine';
-  volume = 0.7;
+  tone: ToneName = 'steel';
+
+  get volume(): number {
+    return this._volume;
+  }
+  set volume(v: number) {
+    this._volume = v;
+    this.steel?.setVolume(v);
+  }
 
   /** Called with the set of currently sounding string indices. */
   onPlayingChange: ((strings: Set<number>) => void) | null = null;
@@ -56,6 +76,32 @@ export class FretboardAudio {
       this.ctx = new Ctor();
     }
     return this.ctx;
+  }
+
+  /**
+   * Lazily boot the steel string bank the first time a steel note is asked
+   * for. Returns null (and remembers the failure) on browsers without
+   * AudioWorklet, which sends those notes down the oscillator fallback.
+   */
+  private async ensureSteel(): Promise<SteelGraph | null> {
+    if (this.steel) return this.steel;
+    if (this.steelFailed) return null;
+    if (!this.steelInit) {
+      const ctx = this.context();
+      this.steelInit = (async () => {
+        try {
+          if (!ctx.audioWorklet) throw new Error('no AudioWorklet');
+          const g = await createSteelGraph(ctx);
+          g.setVolume(this.volume);
+          this.steel = g;
+          return g;
+        } catch {
+          this.steelFailed = true;
+          return null;
+        }
+      })();
+    }
+    return this.steelInit;
   }
 
   private emit(): void {
@@ -89,6 +135,8 @@ export class FretboardAudio {
     this.timeouts.forEach((id) => window.clearTimeout(id));
     this.timeouts = [];
     Array.from(this.voices.keys()).forEach((k) => this.stopVoice(k));
+    // Steel strings damp like blocking (0.2 s), not a hard gate.
+    this.steel?.dampAll();
     if (this.playing.size) {
       this.playing.clear();
       this.emit();
@@ -129,29 +177,47 @@ export class FretboardAudio {
     this.voices.set(key, { oscillator: osc, gain, startAt });
   }
 
-  /**
-   * Strum the given strings (rendered low→high) at `fret`, with equal-power
-   * normalisation so a 10-string pedal-steel stack stays clip-safe.
-   */
-  async strum(tuningMidi: number[], stringIdxs: number[], fret: number): Promise<void> {
-    this.stopAll();
-    if (stringIdxs.length === 0) return;
+  private static freqOf(midi: number): number {
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
 
+  private async resume(): Promise<AudioContext> {
     const ctx = this.context();
     if (ctx.state === 'suspended') {
       try {
         await ctx.resume();
       } catch {
-        /* keep going; the voices will still be scheduled */
+        /* keep going; voices will still be scheduled */
       }
     }
+    return ctx;
+  }
+
+  /**
+   * Strum the given strings (rendered low→high) at `fret`. The steel bank's
+   * bus compressor levels chords; the oscillator fallback keeps equal-power
+   * normalisation.
+   */
+  async strum(tuningMidi: number[], stringIdxs: number[], fret: number): Promise<void> {
+    this.stopAll();
+    if (stringIdxs.length === 0) return;
+
+    const ctx = await this.resume();
+    const steel = this.tone === 'steel' ? await this.ensureSteel() : null;
 
     const ordered = [...stringIdxs].sort((a, b) => a - b);
     const gainScale = Math.min(1, 1 / Math.sqrt(ordered.length));
     const t0 = ctx.currentTime;
+    const count = tuningMidi.length;
 
     ordered.forEach((s, i) => {
-      this.playVoice(tuningMidi[s] + fret, `s${s}`, gainScale, t0 + (i * STRUM_STAGGER_MS) / 1000);
+      const when = t0 + (i * STRUM_STAGGER_MS) / 1000;
+      if (steel) {
+        const pan = count > 1 ? (s / (count - 1)) * 2 - 1 : 0;
+        steel.pluck(s, FretboardAudio.freqOf(tuningMidi[s] + fret), 0.85, when, pan);
+      } else {
+        this.playVoice(tuningMidi[s] + fret, `s${s}`, gainScale, when);
+      }
 
       this.timeouts.push(
         window.setTimeout(() => {
@@ -159,7 +225,7 @@ export class FretboardAudio {
           this.emit();
         }, i * STRUM_STAGGER_MS),
         window.setTimeout(() => {
-          this.stopVoice(`s${s}`);
+          if (!steel) this.stopVoice(`s${s}`);
           this.playing.delete(s);
           this.emit();
         }, i * STRUM_STAGGER_MS + CHORD_RING_MS)
@@ -170,13 +236,11 @@ export class FretboardAudio {
   /** One note with no string attached (e.g. the volume-slider beep). */
   async pluck(midi: number, key = 'single'): Promise<void> {
     this.stopAll();
-    const ctx = this.context();
-    if (ctx.state === 'suspended') {
-      try {
-        await ctx.resume();
-      } catch {
-        /* ignore */
-      }
+    const ctx = await this.resume();
+    const steel = this.tone === 'steel' ? await this.ensureSteel() : null;
+    if (steel) {
+      steel.pluck(0, FretboardAudio.freqOf(midi), 0.9, ctx.currentTime, 0);
+      return;
     }
     this.playVoice(midi, key, 1, ctx.currentTime);
     this.timeouts.push(window.setTimeout(() => this.stopVoice(key), CHORD_RING_MS));
@@ -185,20 +249,18 @@ export class FretboardAudio {
   /** One note on a specific string, with the string's visual pulse. */
   async pluckString(stringIdx: number, midi: number): Promise<void> {
     this.stopAll();
-    const ctx = this.context();
-    if (ctx.state === 'suspended') {
-      try {
-        await ctx.resume();
-      } catch {
-        /* ignore */
-      }
+    const ctx = await this.resume();
+    const steel = this.tone === 'steel' ? await this.ensureSteel() : null;
+    if (steel) {
+      steel.pluck(stringIdx, FretboardAudio.freqOf(midi), 0.9, ctx.currentTime, 0);
+    } else {
+      this.playVoice(midi, `s${stringIdx}`, 1, ctx.currentTime);
     }
-    this.playVoice(midi, `s${stringIdx}`, 1, ctx.currentTime);
     this.playing.add(stringIdx);
     this.emit();
     this.timeouts.push(
       window.setTimeout(() => {
-        this.stopVoice(`s${stringIdx}`);
+        if (!steel) this.stopVoice(`s${stringIdx}`);
         this.playing.delete(stringIdx);
         this.emit();
       }, CHORD_RING_MS)
@@ -207,6 +269,8 @@ export class FretboardAudio {
 
   dispose(): void {
     this.stopAll();
+    this.steel = null;
+    this.steelInit = null;
     this.ctx?.close().catch(() => undefined);
     this.ctx = null;
   }

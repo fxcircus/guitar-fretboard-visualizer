@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import styled, { ThemeProvider, createGlobalStyle, keyframes } from 'styled-components';
+import styled, { ThemeProvider, createGlobalStyle, css, keyframes } from 'styled-components';
 
 import Fretboard from './components/Fretboard';
 import TuningPicker from './components/TuningPicker';
@@ -30,6 +30,7 @@ import {
   saveBoardPrefs,
   type BoardPrefs,
   type FinishName,
+  type InlayName,
 } from './lib/boardStyles';
 import { applyPulls, normalizePulls, resolveTuning } from './lib/tuningState';
 import { deriveKey } from './lib/keyFromTuning';
@@ -67,6 +68,68 @@ const SpeakerIcon = () => (
     <path d="M15.5 8.5a5 5 0 0 1 0 7M18.4 5.6a9 9 0 0 1 0 12.8" />
   </svg>
 );
+
+// Tone voices: what each one IS — a bar over strings, a sine, a saw.
+const SteelToneIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      d="M3 7h18M3 12h18M3 17h18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      opacity="0.55"
+    />
+    <rect x="9.2" y="3.2" width="5.6" height="17.6" rx="2.8" fill="currentColor" />
+  </svg>
+);
+
+const SineToneIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <path d="M2 12c2.6-8.6 7.4-8.6 10 0s7.4 8.6 10 0" />
+  </svg>
+);
+
+const SawToneIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 17 11 7v10L19 7v10" />
+  </svg>
+);
+
+const TONE_ICONS: Record<ToneName, React.ReactNode> = {
+  steel: <SteelToneIcon />,
+  sine: <SineToneIcon />,
+  saw: <SawToneIcon />,
+};
+
+// Inlay styles drawn as themselves, so the settings row reads at a glance.
+const INLAY_ICONS: Record<InlayName, React.ReactNode> = {
+  dots: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="12" r="4.6" />
+    </svg>
+  ),
+  trapezoid: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M7.2 7.5h9.6l3.4 9H3.8z" />
+    </svg>
+  ),
+  blocks: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <rect x="4.5" y="7" width="15" height="10" rx="1.4" />
+    </svg>
+  ),
+  split: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M5.6 6.5h8.8l-2.5 5H3.1zM12.1 12.5h8.8l-2.5 5h-8.8z" />
+    </svg>
+  ),
+  suits: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 3.5c-3.8 4.3-6.7 6-6.7 9a3.1 3.1 0 0 0 5.4 2.1c-.1 1.9-.7 3.2-2 4.4h6.6c-1.3-1.2-1.9-2.5-2-4.4a3.1 3.1 0 0 0 5.4-2.1c0-3-2.9-4.7-6.7-9z" />
+    </svg>
+  ),
+};
 
 const GearIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -263,13 +326,29 @@ const cardIn = keyframes`
   }
 `;
 
-const Card = styled(Chip)`
+const cardOut = keyframes`
+  to {
+    opacity: 0;
+    transform: translateY(3px) scale(0.92);
+  }
+`;
+
+const Card = styled(Chip)<{ $out?: boolean }>`
   flex-direction: column;
   align-items: center;
   gap: 1px;
   min-width: 48px;
-  /* pop in on mount — expanding "+ N more" cascades via animation-delay */
-  animation: ${cardIn} 0.18s ease backwards;
+  /* pop in on mount — expanding "+ N more" cascades via animation-delay;
+     collapsing runs the same cascade out before the cards unmount */
+  ${({ $out }) =>
+    $out
+      ? css`
+          animation: ${cardOut} 0.16s ease forwards;
+          pointer-events: none;
+        `
+      : css`
+          animation: ${cardIn} 0.18s ease backwards;
+        `}
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
@@ -416,6 +495,22 @@ const App: React.FC = () => {
   // "+ N more" chords stay collapsed by default — the degree cards carry the
   // musically useful set; the full list is one tap away.
   const [othersOpen, setOthersOpen] = useState(false);
+  // Collapsing keeps the cards mounted just long enough to cascade out.
+  const [othersClosing, setOthersClosing] = useState(false);
+  const othersTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(othersTimer.current), []);
+
+  const toggleOthers = useCallback(() => {
+    window.clearTimeout(othersTimer.current);
+    if (othersOpen) {
+      setOthersOpen(false);
+      setOthersClosing(true);
+      othersTimer.current = window.setTimeout(() => setOthersClosing(false), 260);
+    } else {
+      setOthersClosing(false);
+      setOthersOpen(true);
+    }
+  }, [othersOpen]);
 
   const sigRef = useRef(baseSignature);
   useEffect(() => {
@@ -423,6 +518,7 @@ const App: React.FC = () => {
     sigRef.current = baseSignature;
     patch({ chip: 0 });
     setOthersOpen(false);
+    setOthersClosing(false);
   }, [baseSignature, patch]);
 
   const selected = chords.length ? chords[Math.min(state.chip, chords.length - 1)] : null;
@@ -577,14 +673,20 @@ const App: React.FC = () => {
 
   const theme = themeName === 'dark' ? darkTheme : lightTheme;
 
-  // `stagger` cascades the pop-in when a batch of cards mounts at once.
-  const renderCard = (card: ChordCard, stagger = 0) => (
+  // `stagger` cascades the pop-in when a batch of cards mounts at once;
+  // `out` runs the same cascade in reverse while the drawer collapses.
+  const renderCard = (card: ChordCard, stagger = 0, out = false) => (
     <Card
       key={`${card.home ? 'home' : (card.roman ?? '')}${cardKey(card.match)}`}
+      $out={out}
       $active={activeCardKey === cardKey(card.match)}
       aria-pressed={activeCardKey === cardKey(card.match)}
       onClick={() => snapToCard(card)}
-      style={stagger ? { animationDelay: `${Math.min(stagger * 12, 260)}ms` } : undefined}
+      style={
+        stagger
+          ? { animationDelay: `${Math.min(stagger * (out ? 8 : 12), out ? 96 : 260)}ms` }
+          : undefined
+      }
       title={
         card.home
           ? `${chordLabel(card.match, flats)} — every open string, strummed as-is`
@@ -645,7 +747,9 @@ const App: React.FC = () => {
                         $active={state.tone === t}
                         aria-pressed={state.tone === t}
                         onClick={() => patch({ tone: t as ToneName })}
+                        style={{ alignItems: 'center', gap: 6 }}
                       >
+                        {TONE_ICONS[t]}
                         {TONES[t].label}
                       </Chip>
                     ))}
@@ -712,7 +816,9 @@ const App: React.FC = () => {
                           aria-pressed={boardPrefs.inlay === s.id}
                           onClick={() => patchBoard({ inlay: s.id })}
                           title={s.full}
+                          style={{ display: 'flex', alignItems: 'center', gap: 5 }}
                         >
+                          {INLAY_ICONS[s.id]}
                           {s.label}
                         </ToggleBtn>
                       ))}
@@ -749,8 +855,8 @@ const App: React.FC = () => {
                             onClick={() => !noGrain && patchBoard({ grain: !boardPrefs.grain })}
                             title={noGrain ? `No grain on a ${FINISHES[boardPrefs.finish].label} board` : 'Wood grain texture'}
                           >
-                            Grain
                             <SwitchTrack $on={boardPrefs.grain && !noGrain} />
+                            Grain
                           </SwitchItem>
                         );
                       })()}
@@ -759,24 +865,24 @@ const App: React.FC = () => {
                         onClick={() => patchBoard({ wire: !boardPrefs.wire })}
                         title="Nut, fret wire and fret shadow"
                       >
-                        Nut &amp; frets
                         <SwitchTrack $on={boardPrefs.wire} />
+                        Nut &amp; frets
                       </SwitchItem>
                       <SwitchItem
                         aria-pressed={boardPrefs.gauges}
                         onClick={() => patchBoard({ gauges: !boardPrefs.gauges })}
                         title="String gauge variation and sheen"
                       >
-                        Gauges
                         <SwitchTrack $on={boardPrefs.gauges} />
+                        Gauges
                       </SwitchItem>
                       <SwitchItem
                         aria-pressed={boardPrefs.side}
                         onClick={() => patchBoard({ side: !boardPrefs.side })}
                         title="Fret markers on the neck edge"
                       >
-                        Side dots
                         <SwitchTrack $on={boardPrefs.side} />
+                        Side dots
                       </SwitchItem>
                     </Row>
                   </div>
@@ -881,8 +987,13 @@ const App: React.FC = () => {
               >
                 {cards.home && renderCard(cards.home)}
                 {cards.degrees.map((c) => renderCard(c))}
-                {othersOpen
-                  ? cards.others.map((c, i) => renderCard(c, i + 1))
+                {othersOpen || othersClosing
+                  ? cards.others.map((c, i) =>
+                      othersClosing && cardKey(c.match) === activeCardKey
+                        ? // the sounding chord stays put while the rest fade
+                          renderCard(c)
+                        : renderCard(c, i + 1, othersClosing)
+                    )
                   : // collapsed: the one non-degree chord currently sounding
                     // stays visible so the selection never vanishes
                     cards.others
@@ -890,7 +1001,7 @@ const App: React.FC = () => {
                       .map((c) => renderCard(c))}
                 {cards.others.length > 0 && (
                   <Card
-                    onClick={() => setOthersOpen((o) => !o)}
+                    onClick={toggleOthers}
                     aria-expanded={othersOpen}
                     title={
                       othersOpen
