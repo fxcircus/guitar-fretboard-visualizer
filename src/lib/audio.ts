@@ -19,13 +19,14 @@ export type ToneName = 'steel' | 'sine' | 'saw';
 /** How a chord is delivered: picked in sequence, together, or swelled in. */
 export type PlayMode = 'strum' | 'together' | 'swell';
 
+// Order is menu order; swell first — it is how the instrument is played.
 export const PLAY_MODES: Record<PlayMode, { label: string; hint: string }> = {
-  strum: { label: 'Strum', hint: 'Picked low to high, one string after the next' },
-  together: { label: 'Together', hint: 'Every string at once — a block chord' },
   swell: {
     label: 'Swell',
     hint: 'Volume-pedal fade-in — the pick disappears and the chord blooms',
   },
+  strum: { label: 'Strum', hint: 'Picked low to high, one string after the next' },
+  together: { label: 'Together', hint: 'Every string at once — a block chord' },
 };
 
 export const PLAY_MODE_NAMES = Object.keys(PLAY_MODES) as PlayMode[];
@@ -43,7 +44,7 @@ export interface Tone {
 // 'steel' is the modelled string; its oscillator fields are only the fallback
 // voice for browsers without AudioWorklet.
 export const TONES: Record<ToneName, Tone> = {
-  steel: { label: 'Steel', osc: 'sawtooth', filterHz: 3000, filterQ: 2, scoop: 0.972 },
+  steel: { label: 'Guitar', osc: 'sawtooth', filterHz: 3000, filterQ: 2, scoop: 0.972 },
   sine: { label: 'Sine', osc: 'sine', filterHz: 6000, filterQ: 0.5, scoop: 1 },
   saw: { label: 'Saw', osc: 'sawtooth', filterHz: 1500, filterQ: 1.2, scoop: 0.965 },
 };
@@ -74,7 +75,7 @@ export class FretboardAudio {
   private _volume = 0.7;
 
   tone: ToneName = 'steel';
-  mode: PlayMode = 'strum';
+  mode: PlayMode = 'swell';
 
   get volume(): number {
     return this._volume;

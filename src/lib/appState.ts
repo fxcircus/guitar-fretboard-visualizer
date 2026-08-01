@@ -42,7 +42,7 @@ export const DEFAULT_STATE: AppState = {
   view: 'bar',
   pulls: [],
   tone: 'steel',
-  mode: 'strum',
+  mode: 'swell',
 };
 
 const STORAGE_KEY = 'gfv.state.v1';

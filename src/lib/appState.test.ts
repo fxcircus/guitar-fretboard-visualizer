@@ -17,7 +17,7 @@ describe('URL state', () => {
       view: 'map',
       pulls: [0, 2, 0, -1, 0, 0],
       tone: 'saw', // the non-default voice, so the o= param is exercised
-      mode: 'swell', // the non-default delivery, so the m= param is exercised
+      mode: 'together', // the non-default delivery, so the m= param is exercised
     };
     expect(roundTrip(s)).toEqual(s);
   });
