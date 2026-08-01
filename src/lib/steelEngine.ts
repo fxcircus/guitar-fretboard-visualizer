@@ -23,6 +23,11 @@ export interface SteelGraph {
   damp: (voice: number, when?: number) => void;
   dampAll: (when?: number) => void;
   setVolume: (v: number) => void;
+  /**
+   * The volume pedal. dur > 0 closes it at `when` and opens it over `dur`
+   * seconds (the swell); dur = 0 snaps it open for normal picking.
+   */
+  setSwell: (when: number, dur: number) => void;
 }
 
 export const STEEL_WORKLET_URL = new URL('./steel-processor.js', import.meta.url);
@@ -185,7 +190,12 @@ export async function createSteelGraph(
   rSend.connect(verb);
   verb.connect(master);
 
-  master.connect(destination ?? ctx.destination);
+  // The volume pedal sits after everything — closing it silences the pick
+  // itself, which is what makes a swell read as a swell.
+  const pedal = ctx.createGain();
+  pedal.gain.value = 1;
+  master.connect(pedal);
+  pedal.connect(destination ?? ctx.destination);
 
   let volume = 0.7;
   const applyVolume = () => {
@@ -213,6 +223,16 @@ export async function createSteelGraph(
     setVolume(v) {
       volume = v;
       applyVolume();
+    },
+    setSwell(when, dur) {
+      const g = pedal.gain;
+      g.cancelScheduledValues(0);
+      if (dur > 0) {
+        g.setValueAtTime(0, when);
+        g.linearRampToValueAtTime(1, when + dur);
+      } else {
+        g.setValueAtTime(1, when);
+      }
     },
   };
 }

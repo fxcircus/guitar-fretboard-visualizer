@@ -37,7 +37,15 @@ import { deriveKey } from './lib/keyFromTuning';
 import { collectChordCards, type ChordCard } from './lib/chordCards';
 import { functionColor } from './lib/noteColors';
 import { noteToPitchClass } from './lib/musicTheory';
-import { FretboardAudio, TONES, TONE_NAMES, type ToneName } from './lib/audio';
+import {
+  FretboardAudio,
+  PLAY_MODES,
+  PLAY_MODE_NAMES,
+  TONES,
+  TONE_NAMES,
+  type PlayMode,
+  type ToneName,
+} from './lib/audio';
 import {
   MAX_FRET,
   loadState,
@@ -100,6 +108,33 @@ const TONE_ICONS: Record<ToneName, React.ReactNode> = {
   steel: <SteelToneIcon />,
   sine: <SineToneIcon />,
   saw: <SawToneIcon />,
+};
+
+// Play modes: a sweep across the strings, a stacked block, a crescendo hairpin.
+const StrumModeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M5 19 17 7M17 7h-5.5M17 7v5.5" />
+  </svg>
+);
+
+const TogetherModeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <circle cx="12" cy="5.5" r="2.6" />
+    <circle cx="12" cy="12" r="2.6" />
+    <circle cx="12" cy="18.5" r="2.6" />
+  </svg>
+);
+
+const SwellModeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M20 6 4 12l16 6" />
+  </svg>
+);
+
+const MODE_ICONS: Record<PlayMode, React.ReactNode> = {
+  strum: <StrumModeIcon />,
+  together: <TogetherModeIcon />,
+  swell: <SwellModeIcon />,
 };
 
 // Inlay styles drawn as themselves, so the settings row reads at a glance.
@@ -604,6 +639,7 @@ const App: React.FC = () => {
   }
   const audio = audioRef.current;
   audio.tone = state.tone;
+  audio.mode = state.mode;
   audio.volume = volume;
   useEffect(() => () => audioRef.current?.dispose(), []);
 
@@ -751,6 +787,22 @@ const App: React.FC = () => {
                       >
                         {TONE_ICONS[t]}
                         {TONES[t].label}
+                      </Chip>
+                    ))}
+                  </Row>
+                  <Label>Play</Label>
+                  <Row role="group" aria-label="Chord delivery">
+                    {PLAY_MODE_NAMES.map((m) => (
+                      <Chip
+                        key={m}
+                        $active={state.mode === m}
+                        aria-pressed={state.mode === m}
+                        onClick={() => patch({ mode: m as PlayMode })}
+                        title={PLAY_MODES[m].hint}
+                        style={{ alignItems: 'center', gap: 6 }}
+                      >
+                        {MODE_ICONS[m]}
+                        {PLAY_MODES[m].label}
                       </Chip>
                     ))}
                   </Row>

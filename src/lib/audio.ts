@@ -16,6 +16,20 @@ import { createSteelGraph, type SteelGraph } from './steelEngine';
 
 export type ToneName = 'steel' | 'sine' | 'saw';
 
+/** How a chord is delivered: picked in sequence, together, or swelled in. */
+export type PlayMode = 'strum' | 'together' | 'swell';
+
+export const PLAY_MODES: Record<PlayMode, { label: string; hint: string }> = {
+  strum: { label: 'Strum', hint: 'Picked low to high, one string after the next' },
+  together: { label: 'Together', hint: 'Every string at once — a block chord' },
+  swell: {
+    label: 'Swell',
+    hint: 'Volume-pedal fade-in — the pick disappears and the chord blooms',
+  },
+};
+
+export const PLAY_MODE_NAMES = Object.keys(PLAY_MODES) as PlayMode[];
+
 export interface Tone {
   label: string;
   osc: OscillatorType;
@@ -38,6 +52,11 @@ export const TONE_NAMES = Object.keys(TONES) as ToneName[];
 
 const CHORD_RING_MS = 1400;
 const STRUM_STAGGER_MS = 55;
+// The swell: strings sound with the pedal closed (gain 0) and fade in over
+// this long — the pick transient never reaches the ear, only the bloom.
+const SWELL_S = 0.8;
+// The oscillator fallback approximates the same feel with a slow attack.
+const SWELL_ATTACK_S = 0.7;
 
 interface Voice {
   oscillator: OscillatorNode;
@@ -55,6 +74,7 @@ export class FretboardAudio {
   private _volume = 0.7;
 
   tone: ToneName = 'steel';
+  mode: PlayMode = 'strum';
 
   get volume(): number {
     return this._volume;
@@ -143,7 +163,13 @@ export class FretboardAudio {
     }
   }
 
-  private playVoice(midi: number, key: string, gainScale: number, startAt: number): void {
+  private playVoice(
+    midi: number,
+    key: string,
+    gainScale: number,
+    startAt: number,
+    attackS = 0.012
+  ): void {
     const ctx = this.context();
     this.stopVoice(key);
     const tone = TONES[this.tone];
@@ -162,8 +188,8 @@ export class FretboardAudio {
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, startAt);
-    gain.gain.linearRampToValueAtTime(0.22, startAt + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.12, startAt + 0.35);
+    gain.gain.linearRampToValueAtTime(0.22, startAt + attackS);
+    gain.gain.exponentialRampToValueAtTime(0.12, startAt + attackS + 0.35);
 
     const master = ctx.createGain();
     master.gain.value = this.volume * gainScale;
@@ -194,9 +220,10 @@ export class FretboardAudio {
   }
 
   /**
-   * Strum the given strings (rendered low→high) at `fret`. The steel bank's
-   * bus compressor levels chords; the oscillator fallback keeps equal-power
-   * normalisation.
+   * Play the given strings (rendered low→high) at `fret`, delivered per the
+   * current mode: strummed with a stagger, together as a block, or swelled in
+   * behind a closed volume pedal. The steel bank's bus compressor levels
+   * chords; the oscillator fallback keeps equal-power normalisation.
    */
   async strum(tuningMidi: number[], stringIdxs: number[], fret: number): Promise<void> {
     this.stopAll();
@@ -205,40 +232,58 @@ export class FretboardAudio {
     const ctx = await this.resume();
     const steel = this.tone === 'steel' ? await this.ensureSteel() : null;
 
+    const swell = this.mode === 'swell';
+    const stagger = this.mode === 'strum' ? STRUM_STAGGER_MS : 0;
+    // A swell picks softly — the fade hides the attack; the bloom matters.
+    const vel = swell ? 0.55 : 0.85;
+    const ringMs = CHORD_RING_MS + (swell ? SWELL_S * 1000 : 0);
+
     const ordered = [...stringIdxs].sort((a, b) => a - b);
     const gainScale = Math.min(1, 1 / Math.sqrt(ordered.length));
     const t0 = ctx.currentTime;
     const count = tuningMidi.length;
 
+    steel?.setSwell(t0, swell ? SWELL_S : 0);
+
     ordered.forEach((s, i) => {
-      const when = t0 + (i * STRUM_STAGGER_MS) / 1000;
+      const when = t0 + (i * stagger) / 1000;
       if (steel) {
         const pan = count > 1 ? (s / (count - 1)) * 2 - 1 : 0;
-        steel.pluck(s, FretboardAudio.freqOf(tuningMidi[s] + fret), 0.85, when, pan);
+        steel.pluck(s, FretboardAudio.freqOf(tuningMidi[s] + fret), vel, when, pan);
       } else {
-        this.playVoice(tuningMidi[s] + fret, `s${s}`, gainScale, when);
+        this.playVoice(
+          tuningMidi[s] + fret,
+          `s${s}`,
+          gainScale,
+          when,
+          swell ? SWELL_ATTACK_S : undefined
+        );
       }
 
       this.timeouts.push(
         window.setTimeout(() => {
           this.playing.add(s);
           this.emit();
-        }, i * STRUM_STAGGER_MS),
+        }, i * stagger),
         window.setTimeout(() => {
           if (!steel) this.stopVoice(`s${s}`);
           this.playing.delete(s);
           this.emit();
-        }, i * STRUM_STAGGER_MS + CHORD_RING_MS)
+        }, i * stagger + ringMs)
       );
     });
   }
 
-  /** One note with no string attached (e.g. the volume-slider beep). */
+  /**
+   * One note with no string attached (the volume-slider beep). Always
+   * immediate — a swelled beep would say nothing about the level.
+   */
   async pluck(midi: number, key = 'single'): Promise<void> {
     this.stopAll();
     const ctx = await this.resume();
     const steel = this.tone === 'steel' ? await this.ensureSteel() : null;
     if (steel) {
+      steel.setSwell(ctx.currentTime, 0);
       steel.pluck(0, FretboardAudio.freqOf(midi), 0.9, ctx.currentTime, 0);
       return;
     }
@@ -251,10 +296,12 @@ export class FretboardAudio {
     this.stopAll();
     const ctx = await this.resume();
     const steel = this.tone === 'steel' ? await this.ensureSteel() : null;
+    const swell = this.mode === 'swell';
     if (steel) {
-      steel.pluck(stringIdx, FretboardAudio.freqOf(midi), 0.9, ctx.currentTime, 0);
+      steel.setSwell(ctx.currentTime, swell ? SWELL_S : 0);
+      steel.pluck(stringIdx, FretboardAudio.freqOf(midi), swell ? 0.55 : 0.9, ctx.currentTime, 0);
     } else {
-      this.playVoice(midi, `s${stringIdx}`, 1, ctx.currentTime);
+      this.playVoice(midi, `s${stringIdx}`, 1, ctx.currentTime, swell ? SWELL_ATTACK_S : undefined);
     }
     this.playing.add(stringIdx);
     this.emit();
@@ -263,7 +310,7 @@ export class FretboardAudio {
         if (!steel) this.stopVoice(`s${stringIdx}`);
         this.playing.delete(stringIdx);
         this.emit();
-      }, CHORD_RING_MS)
+      }, CHORD_RING_MS + (swell ? SWELL_S * 1000 : 0))
     );
   }
 

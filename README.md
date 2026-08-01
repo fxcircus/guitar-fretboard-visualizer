@@ -128,6 +128,12 @@ fundamental, as on a real string), a 6-note chord losing only ~8 dB over two
 seconds of ring, and the pick transient surviving the compressor. Browsers
 without AudioWorklet fall back to the plain oscillator voices ('Sine'/'Saw').
 
+Chords play in one of three modes (the Play row in the sound menu): **Strum**
+picks the strings low to high, **Together** sounds them as one block, and
+**Swell** plays them behind a closed volume pedal that opens over ~0.8 s —
+the pick transient never sounds, the chord just blooms, the classic steel
+fade-in. The mode travels in shared links like the tone does.
+
 ## Sharing
 
 The whole board lives in the URL: tuning, bar position, selected grip, view,

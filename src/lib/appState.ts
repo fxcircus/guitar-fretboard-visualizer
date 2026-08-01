@@ -12,7 +12,7 @@
  */
 import { CUSTOM_TUNING_ID, DEFAULT_TUNING_ID, getTuning } from './tunings';
 import { PULL_MAX, PULL_MIN } from './tuningState';
-import { TONE_NAMES, type ToneName } from './audio';
+import { PLAY_MODE_NAMES, TONE_NAMES, type PlayMode, type ToneName } from './audio';
 
 export type NeckView = 'bar' | 'map';
 
@@ -30,6 +30,8 @@ export interface AppState {
   /** Per-string semitone bends, low string first. */
   pulls: number[];
   tone: ToneName;
+  /** How chords are delivered: strummed, together, or swelled in. */
+  mode: PlayMode;
 }
 
 export const DEFAULT_STATE: AppState = {
@@ -40,6 +42,7 @@ export const DEFAULT_STATE: AppState = {
   view: 'bar',
   pulls: [],
   tone: 'steel',
+  mode: 'strum',
 };
 
 const STORAGE_KEY = 'gfv.state.v1';
@@ -58,6 +61,7 @@ export function encodeState(s: AppState): string {
   if (s.view !== DEFAULT_STATE.view) p.set('v', s.view);
   if (s.pulls.some(Boolean)) p.set('p', s.pulls.join('.'));
   if (s.tone !== DEFAULT_STATE.tone) p.set('o', s.tone);
+  if (s.mode !== DEFAULT_STATE.mode) p.set('m', s.mode);
   return p.toString();
 }
 
@@ -83,9 +87,10 @@ export function decodeState(hash: string, base: AppState = DEFAULT_STATE): AppSt
   const v = p.get('v');
   if (v === 'bar' || v === 'map') next.view = v;
 
-  // Older links carried k=/s= (key), m= (fret count), a= (accidentals),
-  // g= (guide) and c= (find target); all of those are now derived or fixed,
-  // so the params are simply ignored.
+  // Older links carried k=/s= (key), a= (accidentals), g= (guide) and
+  // c= (find target); all of those are now derived or fixed, so the params
+  // are simply ignored. m= used to be the fret count — its old numeric
+  // values fail the play-mode check below, so those links stay harmless.
 
   const pulls = p.get('p');
   if (pulls) {
@@ -97,6 +102,9 @@ export function decodeState(hash: string, base: AppState = DEFAULT_STATE): AppSt
 
   const o = p.get('o');
   if (o && (TONE_NAMES as string[]).includes(o)) next.tone = o as ToneName;
+
+  const m = p.get('m');
+  if (m && (PLAY_MODE_NAMES as string[]).includes(m)) next.mode = m as PlayMode;
 
   return next;
 }

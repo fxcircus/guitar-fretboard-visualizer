@@ -17,6 +17,7 @@ describe('URL state', () => {
       view: 'map',
       pulls: [0, 2, 0, -1, 0, 0],
       tone: 'saw', // the non-default voice, so the o= param is exercised
+      mode: 'swell', // the non-default delivery, so the m= param is exercised
     };
     expect(roundTrip(s)).toEqual(s);
   });
@@ -61,6 +62,8 @@ describe('URL state', () => {
     expect(s.barFret).toBe(3);
     expect(s.tone).toBe(DEFAULT_STATE.tone); // 'clean' no longer exists
     expect(s.view).toBe('bar');
+    // m= was the fret count back then; it must not read as a play mode.
+    expect(s.mode).toBe(DEFAULT_STATE.mode);
   });
 
   test('pulls are clamped to the legal bend range', () => {
