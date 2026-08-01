@@ -1,0 +1,1366 @@
+{
+  "FAMILIES": [
+    {
+      "family": "Common",
+      "label": "Basic",
+      "tunings": [
+        {
+          "name": "Standard",
+          "notes": "E A D G B E",
+          "offsets": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "name": "DADGAD",
+          "notes": "D A D G A D",
+          "offsets": [
+            -2,
+            -2,
+            0,
+            0,
+            0,
+            -2
+          ],
+          "pedals": [
+            {
+              "id": "A",
+              "name": "Sus · resolve",
+              "group": "foot",
+              "key": "a",
+              "string": 2,
+              "semis": 2
+            }
+          ],
+          "pedalInfo": "<b>Sus · resolve</b> — the DADGAD move: the G lifts to <b>A</b>, the suspended 4th melting into pure fifths (D A D A A D). Glides in Classic mode."
+        },
+        {
+          "name": "Nashville",
+          "notes": "E A D G B E",
+          "offsets": [
+            0,
+            0,
+            12,
+            12,
+            12,
+            12
+          ],
+          "extraPedals": [
+            {
+              "id": "ND3",
+              "name": "Drop G",
+              "group": "foot",
+              "key": "h",
+              "string": 2,
+              "semis": -12
+            },
+            {
+              "id": "ND4",
+              "name": "Drop D",
+              "group": "foot",
+              "key": "k",
+              "string": 3,
+              "semis": -12
+            }
+          ]
+        },
+        {
+          "name": "Baritone",
+          "notes": "B E A D F# B",
+          "offsets": [
+            -5,
+            -5,
+            -5,
+            -5,
+            -5,
+            -5
+          ]
+        },
+        {
+          "name": "Bass VI",
+          "notes": "E A D G B E",
+          "offsets": [
+            -12,
+            -12,
+            -12,
+            -12,
+            -12,
+            -12
+          ]
+        },
+        {
+          "name": "Hendrix",
+          "notes": "Eb Ab Db Gb Bb Eb",
+          "offsets": [
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1
+          ]
+        }
+      ]
+    },
+    {
+      "family": "6th Family",
+      "section": "Lap Steel",
+      "tunings": [
+        {
+          "name": "C6",
+          "notes": "C E G A C E",
+          "offsets": [
+            0,
+            1,
+            2,
+            5,
+            -5,
+            -4
+          ]
+        },
+        {
+          "name": "A6",
+          "notes": "C# E F# A C# E",
+          "offsets": [
+            0,
+            2,
+            2,
+            4,
+            -5,
+            -3
+          ]
+        },
+        {
+          "name": "C6/A7",
+          "notes": "C# E G A C E",
+          "offsets": [
+            0,
+            1,
+            2,
+            5,
+            -5,
+            -3
+          ]
+        }
+      ]
+    },
+    {
+      "family": "Dominant / 7th",
+      "section": "Lap Steel",
+      "tunings": [
+        {
+          "name": "E7",
+          "notes": "B D E G# B E",
+          "offsets": [
+            0,
+            0,
+            1,
+            2,
+            5,
+            -5
+          ]
+        },
+        {
+          "name": "E13",
+          "notes": "D E G# B C# E",
+          "offsets": [
+            0,
+            2,
+            4,
+            -6,
+            -5,
+            -2
+          ]
+        },
+        {
+          "name": "E9 lap",
+          "notes": "D E F# G# B E",
+          "offsets": [
+            0,
+            0,
+            1,
+            4,
+            -5,
+            -2
+          ]
+        }
+      ]
+    },
+    {
+      "family": "Other",
+      "section": "Lap Steel",
+      "tunings": [
+        {
+          "name": "B11",
+          "notes": "B D# F# A C# E",
+          "offsets": [
+            0,
+            2,
+            2,
+            4,
+            -6,
+            -5
+          ]
+        },
+        {
+          "name": "Cyrus Hybrid",
+          "notes": "G B D F# A D",
+          "offsets": [
+            -2,
+            -2,
+            -1,
+            0,
+            2,
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "family": "Open Majors",
+      "tunings": [
+        {
+          "name": "Open E",
+          "notes": "E B E G# B E",
+          "offsets": [
+            0,
+            0,
+            1,
+            2,
+            2,
+            0
+          ],
+          "extraPedals": [
+            {
+              "id": "SH4",
+              "name": "IV",
+              "group": "shift",
+              "key": "h",
+              "act": "whole neck +5",
+              "shift": 5
+            },
+            {
+              "id": "SH5",
+              "name": "V",
+              "group": "shift",
+              "key": "k",
+              "act": "whole neck +7",
+              "shift": 7
+            }
+          ]
+        },
+        {
+          "name": "Open D",
+          "notes": "D A D F# A D",
+          "offsets": [
+            -2,
+            -2,
+            -1,
+            0,
+            0,
+            -2
+          ],
+          "extraPedals": [
+            {
+              "id": "SH4",
+              "name": "IV",
+              "group": "shift",
+              "key": "h",
+              "act": "whole neck +5",
+              "shift": 5
+            },
+            {
+              "id": "SH5",
+              "name": "V",
+              "group": "shift",
+              "key": "k",
+              "act": "whole neck +7",
+              "shift": 7
+            }
+          ]
+        },
+        {
+          "name": "Open G Dobro",
+          "notes": "G B D G B D",
+          "offsets": [
+            -2,
+            0,
+            0,
+            0,
+            2,
+            3
+          ],
+          "extraPedals": [
+            {
+              "id": "SH4",
+              "name": "IV",
+              "group": "shift",
+              "key": "h",
+              "act": "whole neck +5",
+              "shift": 5
+            },
+            {
+              "id": "SH5",
+              "name": "V",
+              "group": "shift",
+              "key": "k",
+              "act": "whole neck +7",
+              "shift": 7
+            }
+          ]
+        },
+        {
+          "name": "Open G low",
+          "notes": "D G D G B D",
+          "offsets": [
+            -2,
+            0,
+            0,
+            0,
+            -2,
+            -2
+          ],
+          "extraPedals": [
+            {
+              "id": "SH4",
+              "name": "IV",
+              "group": "shift",
+              "key": "h",
+              "act": "whole neck +5",
+              "shift": 5
+            },
+            {
+              "id": "SH5",
+              "name": "V",
+              "group": "shift",
+              "key": "k",
+              "act": "whole neck +7",
+              "shift": 7
+            }
+          ]
+        },
+        {
+          "name": "Open A high",
+          "notes": "A C# E A C# E",
+          "offsets": [
+            0,
+            2,
+            2,
+            2,
+            4,
+            5
+          ],
+          "extraPedals": [
+            {
+              "id": "SH4",
+              "name": "IV",
+              "group": "shift",
+              "key": "h",
+              "act": "whole neck +5",
+              "shift": 5
+            },
+            {
+              "id": "SH5",
+              "name": "V",
+              "group": "shift",
+              "key": "k",
+              "act": "whole neck +7",
+              "shift": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "family": "Drop",
+      "tunings": [
+        {
+          "name": "Drop D",
+          "notes": "D A D G B E",
+          "offsets": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            -2
+          ]
+        },
+        {
+          "name": "Drop Db",
+          "notes": "Db Ab Db Gb Bb Eb",
+          "offsets": [
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -3
+          ]
+        },
+        {
+          "name": "Drop C",
+          "notes": "C G C F A D",
+          "offsets": [
+            -2,
+            -2,
+            -2,
+            -2,
+            -2,
+            -4
+          ]
+        },
+        {
+          "name": "Drop B",
+          "notes": "B Gb B E Ab Db",
+          "offsets": [
+            -3,
+            -3,
+            -3,
+            -3,
+            -3,
+            -5
+          ]
+        },
+        {
+          "name": "Drop Bb",
+          "notes": "Bb F Bb Eb G C",
+          "offsets": [
+            -4,
+            -4,
+            -4,
+            -4,
+            -4,
+            -6
+          ]
+        },
+        {
+          "name": "Drop A",
+          "notes": "A E A D F# B",
+          "offsets": [
+            -5,
+            -5,
+            -5,
+            -5,
+            -5,
+            -7
+          ]
+        }
+      ]
+    },
+    {
+      "family": "Artists",
+      "tunings": [
+        {
+          "name": "Fripp NST",
+          "notes": "C G D A E G",
+          "offsets": [
+            3,
+            5,
+            2,
+            0,
+            -2,
+            -4
+          ],
+          "ref": "Robert Fripp’s New Standard Tuning (all fifths) · King Crimson “Frame by Frame” (Discipline, 1981)"
+        },
+        {
+          "name": "Gambale",
+          "notes": "A D G C E A",
+          "offsets": [
+            -7,
+            -7,
+            5,
+            5,
+            5,
+            5
+          ],
+          "ref": "Frank Gambale · fourths tuning"
+        },
+        {
+          "name": "Led Kashmir",
+          "notes": "D A D G A D",
+          "offsets": [
+            -2,
+            -2,
+            0,
+            0,
+            0,
+            -2
+          ],
+          "ref": "Led Zeppelin · “Kashmir” (Jimmy Page, on his Danelectro)",
+          "pedals": [
+            {
+              "id": "A",
+              "name": "Sus · resolve",
+              "group": "foot",
+              "key": "a",
+              "string": 2,
+              "semis": 2
+            }
+          ],
+          "pedalInfo": "<b>Sus · resolve</b> — the DADGAD move Page rides through Kashmir: the G lifts to <b>A</b>, the suspended 4th melting into pure fifths (D A D A A D). Glides in Classic mode."
+        },
+        {
+          "name": "Led Rain",
+          "notes": "D G C G C D",
+          "offsets": [
+            -2,
+            1,
+            0,
+            -2,
+            -2,
+            -2
+          ],
+          "ref": "Led Zeppelin · “The Rain Song” (Jimmy Page)"
+        },
+        {
+          "name": "Blur Song2",
+          "notes": "D A D G B E",
+          "offsets": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            -2
+          ],
+          "ref": "Blur · “Song 2” (Drop D)"
+        },
+        {
+          "name": "Schizophrenia",
+          "notes": "F# F# G G A A",
+          "offsets": [
+            5,
+            -2,
+            0,
+            5,
+            -3,
+            2
+          ],
+          "ref": "Sonic Youth · “Schizophrenia” (Thurston Moore)"
+        },
+        {
+          "name": "Nick Drake",
+          "notes": "C G C F C E",
+          "offsets": [
+            0,
+            1,
+            -2,
+            -2,
+            -2,
+            -4
+          ],
+          "ref": "Nick Drake · “Pink Moon” (Open C)"
+        },
+        {
+          "name": "Keith Richards",
+          "notes": "G G D G B D",
+          "offsets": [
+            -2,
+            0,
+            0,
+            0,
+            -2,
+            3
+          ],
+          "ref": "Rolling Stones · “Start Me Up” (5-string Open G)"
+        },
+        {
+          "name": "Am. Football",
+          "notes": "F A C G C E",
+          "offsets": [
+            0,
+            1,
+            0,
+            -2,
+            0,
+            1
+          ],
+          "ref": "American Football · “Never Meant” (Fmaj9)"
+        },
+        {
+          "name": "SoundG Wave",
+          "notes": "E E B B B B",
+          "offsets": [
+            -5,
+            0,
+            4,
+            -3,
+            -5,
+            0
+          ],
+          "ref": "Soundgarden · “My Wave”"
+        },
+        {
+          "name": "SoundG Sun",
+          "notes": "D A D G B E",
+          "offsets": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            -2
+          ],
+          "ref": "Soundgarden · “Black Hole Sun” (Drop D)"
+        },
+        {
+          "name": "Young Cinnamon",
+          "notes": "D A D G B E",
+          "offsets": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            -2
+          ],
+          "ref": "Neil Young · “Cinnamon Girl” (Drop D)"
+        },
+        {
+          "name": "Joni Cab",
+          "notes": "E B E G# B E",
+          "offsets": [
+            0,
+            0,
+            1,
+            2,
+            2,
+            0
+          ],
+          "ref": "Joni Mitchell · “Big Yellow Taxi” (Open E)"
+        },
+        {
+          "name": "Joni Sides",
+          "artist": "Joni Mitchell",
+          "notes": "D A D F# A D",
+          "offsets": [
+            -2,
+            -2,
+            -1,
+            0,
+            0,
+            -2
+          ],
+          "chords": [
+            "Dmaj7",
+            "G/B",
+            "A7",
+            "A7sus4"
+          ],
+          "comment": "Open D, no capo. Recording uses capo 4 (sounds in F# major); this is the no-capo base tuning."
+        },
+        {
+          "name": "Radio Pyramid",
+          "artist": "Radiohead",
+          "notes": "F# A# C# F# A# F#",
+          "offsets": [
+            2,
+            -1,
+            -1,
+            -1,
+            1,
+            2
+          ],
+          "chords": [
+            "F#",
+            "Gmaj7",
+            "A6",
+            "F#m",
+            "Eadd9",
+            "G"
+          ],
+          "comment": "Open F# major. Let the top F# ring as a pedal; barre strings 6-2 for Gmaj7 (fret 1) and A6 (fret 3)."
+        },
+        {
+          "name": "Radio Everything",
+          "artist": "Radiohead",
+          "notes": "C G C G G# C",
+          "offsets": [
+            -4,
+            -3,
+            0,
+            -2,
+            -2,
+            -4
+          ],
+          "chords": [
+            "Fmaj7",
+            "Cmaj7",
+            "Dbmaj7",
+            "Eb6"
+          ],
+          "comment": "\"Everything In Its Right Place\" voicing — open strings C G C G G# C with a C pedal on the top string. The G → C bender pushes the neutral G string (3) up a fourth to a second C.",
+          "pedals": [
+            {
+              "id": "A",
+              "name": "G → C",
+              "group": "foot",
+              "key": "a",
+              "string": 2,
+              "semis": 5
+            }
+          ],
+          "pedalInfo": "<b>G → C</b> raises the neutral G string (string 3) up a fourth to a second C — over this <b>Everything In Its Right Place</b> voicing."
+        }
+      ]
+    }
+  ],
+  "MODES": [
+    {
+      "name": "White Keys",
+      "notes": "C D E F G A",
+      "offsets": [
+        -7,
+        -4,
+        -2,
+        2,
+        5,
+        8
+      ],
+      "modes": true,
+      "seventh": 11,
+      "charIv": 5,
+      "base": true
+    },
+    {
+      "name": "C Lydian",
+      "notes": "C D E F# G A",
+      "offsets": [
+        -7,
+        -4,
+        -1,
+        2,
+        5,
+        8
+      ],
+      "modes": true,
+      "seventh": 11,
+      "charIv": 6
+    },
+    {
+      "name": "C Ionian",
+      "notes": "C D E F G A",
+      "offsets": [
+        -7,
+        -4,
+        -2,
+        2,
+        5,
+        8
+      ],
+      "modes": true,
+      "seventh": 11,
+      "charIv": 5
+    },
+    {
+      "name": "C Mixolydian",
+      "notes": "C D E F G A",
+      "offsets": [
+        -7,
+        -4,
+        -2,
+        2,
+        5,
+        8
+      ],
+      "modes": true,
+      "seventh": 10,
+      "charIv": 10
+    },
+    {
+      "name": "C Dorian",
+      "notes": "C D Eb F G A",
+      "offsets": [
+        -7,
+        -4,
+        -2,
+        1,
+        5,
+        8
+      ],
+      "modes": true,
+      "seventh": 10,
+      "charIv": 9
+    },
+    {
+      "name": "C Aeolian",
+      "notes": "C D Eb F G Ab",
+      "offsets": [
+        -8,
+        -4,
+        -2,
+        1,
+        5,
+        8
+      ],
+      "modes": true,
+      "seventh": 10,
+      "charIv": 8
+    },
+    {
+      "name": "C Phrygian",
+      "notes": "C Db Eb F G Ab",
+      "offsets": [
+        -8,
+        -4,
+        -2,
+        1,
+        4,
+        8
+      ],
+      "modes": true,
+      "seventh": 10,
+      "charIv": 1
+    },
+    {
+      "name": "C Locrian",
+      "notes": "C Db Eb F Gb Ab",
+      "offsets": [
+        -8,
+        -5,
+        -2,
+        1,
+        4,
+        8
+      ],
+      "modes": true,
+      "seventh": 10,
+      "charIv": 6
+    }
+  ],
+  "ETHNIC": [
+    {
+      "name": "Mandolin",
+      "pitches": [
+        55,
+        62,
+        69,
+        76
+      ],
+      "notes": "G D A E",
+      "ref": "Traditional Irish / Bluegrass",
+      "courses": true
+    },
+    {
+      "name": "Irish Bouzouki",
+      "pitches": [
+        43,
+        50,
+        57,
+        62
+      ],
+      "notes": "G D A D",
+      "ref": "Irish Traditional Music",
+      "courses": true
+    },
+    {
+      "name": "Greek Bouzouki",
+      "pitches": [
+        48,
+        53,
+        57,
+        62
+      ],
+      "notes": "C F A D",
+      "ref": "Rebetiko · Trichordo",
+      "courses": true
+    },
+    {
+      "name": "Oud",
+      "pitches": [
+        36,
+        41,
+        45,
+        50,
+        55,
+        60
+      ],
+      "notes": "C F A D G C",
+      "ref": "Middle-Eastern Taqsim",
+      "courses": true
+    },
+    {
+      "name": "Charango",
+      "pitches": [
+        55,
+        60,
+        64,
+        69,
+        76
+      ],
+      "notes": "G C E A E",
+      "ref": "Andean Folk Music",
+      "courses": true
+    },
+    {
+      "name": "Saz / Bağlama",
+      "pitches": [
+        47,
+        52,
+        57
+      ],
+      "notes": "B E A",
+      "ref": "Turkish Folk · short neck",
+      "courses": true
+    },
+    {
+      "name": "Sitar",
+      "pitches": [
+        36,
+        43,
+        48,
+        55,
+        60,
+        65
+      ],
+      "notes": "C G C G C F",
+      "ref": "Hindustani classical · Kharaj-Pancham",
+      "pedals": [
+        {
+          "id": "A",
+          "name": "Meend · Pa",
+          "group": "foot",
+          "key": "a",
+          "string": 0,
+          "semis": 2
+        },
+        {
+          "id": "B",
+          "name": "Meend · Dha",
+          "group": "foot",
+          "key": "s",
+          "string": 0,
+          "semis": 4
+        },
+        {
+          "id": "AB",
+          "name": "Meend · Sa′",
+          "group": "foot",
+          "key": "g",
+          "string": 0,
+          "semis": 7
+        },
+        {
+          "id": "LKL",
+          "name": "Sa · Re",
+          "group": "knee",
+          "key": "d",
+          "string": 1,
+          "semis": 2
+        },
+        {
+          "id": "LKR",
+          "name": "Pa · Dha",
+          "group": "knee",
+          "key": "f",
+          "string": 2,
+          "semis": 2
+        }
+      ],
+      "pedalInfo": "<b>Meend</b> — the sitar's gliding pulls, all on the top <b>Ma</b> string (F): up to <b>Pa</b>, <b>Dha</b>, or the full fifth to high <b>Sa</b>. The knee levers pull the <b>Sa</b> and <b>Pa</b> drones a whole step. Set <b>Bend Time · Slow</b> for the classic slow glide."
+    },
+    {
+      "name": "Cavaquinho",
+      "pitches": [
+        62,
+        67,
+        71,
+        74
+      ],
+      "notes": "D G B D",
+      "ref": "Samba & Choro"
+    },
+    {
+      "name": "Ukulele",
+      "pitches": [
+        67,
+        60,
+        64,
+        69
+      ],
+      "notes": "G C E A",
+      "ref": "Soprano · reentrant tuning"
+    },
+    {
+      "name": "Baritone Uke",
+      "pitches": [
+        50,
+        55,
+        59,
+        64
+      ],
+      "notes": "D G B E",
+      "ref": "Tuned like a guitar’s top four"
+    },
+    {
+      "name": "Cuatro",
+      "pitches": [
+        59,
+        62,
+        66,
+        69
+      ],
+      "notes": "A D F# B",
+      "ref": "Venezuelan Joropo · reentrant"
+    },
+    {
+      "name": "Balalaika",
+      "pitches": [
+        64,
+        64,
+        69
+      ],
+      "notes": "E E A",
+      "ref": "Russian Folk Tunes"
+    },
+    {
+      "name": "Banjo",
+      "pitches": [
+        50,
+        55,
+        59,
+        62,
+        67
+      ],
+      "notes": "D G B D G",
+      "ref": "5-string · open G"
+    }
+  ],
+  "STEEL": [
+    {
+      "id": "e9",
+      "name": "E9 Nashville",
+      "sub": "country · session sound",
+      "root": 4,
+      "copedent": "e9",
+      "midi": [
+        47,
+        50,
+        52,
+        54,
+        56,
+        59,
+        64,
+        68,
+        75,
+        78
+      ],
+      "spell": "B D E F# G# B E G# D# F#"
+    },
+    {
+      "id": "e9l",
+      "name": "E9 Lanois",
+      "sub": "ambient variant · doubled low strings for 12-string shimmer",
+      "root": 4,
+      "copedent": "e9",
+      "midi": [
+        47,
+        47,
+        52,
+        52,
+        56,
+        59,
+        64,
+        68,
+        75,
+        78
+      ],
+      "spell": "B B E E G# B E G# D# F#"
+    },
+    {
+      "id": "c6",
+      "name": "C6 Swing/Jazz",
+      "sub": "western swing · jazz",
+      "root": 0,
+      "copedent": "c6",
+      "midi": [
+        48,
+        53,
+        57,
+        60,
+        64,
+        67,
+        69,
+        72,
+        76,
+        86
+      ],
+      "spell": "C F A C E G A C E D"
+    },
+    {
+      "id": "b6",
+      "name": "B6 Universal",
+      "sub": "6th-flavored hybrid",
+      "root": 11,
+      "copedent": "e9",
+      "midi": [
+        47,
+        50,
+        50,
+        54,
+        56,
+        59,
+        62,
+        68,
+        75,
+        78
+      ],
+      "spell": "B D D F# G# B D G# D# F#"
+    }
+  ],
+  "TUNING_TIPS": {
+    "DADGAD": {
+      "desc": "Modal \"Celtic\" tuning — the open strings ring a Dsus4. Pioneered by Davey Graham.",
+      "song": "\"She Moved Through the Fair\" — Davey Graham"
+    },
+    "Nashville": {
+      "desc": "\"High-strung\" — the lower four strings swap to light gauges an octave up for a shimmering, 12-string-like chime. A studio doubling trick.",
+      "song": "\"Wild Horses\" — The Rolling Stones"
+    },
+    "Baritone": {
+      "desc": "A long-scale guitar tuned a fourth low (B to B); born in surf and spaghetti-western scores.",
+      "song": "\"Wichita Lineman\" — Glen Campbell"
+    },
+    "Bass VI": {
+      "desc": "The whole guitar dropped a full octave — the Fender Bass VI's baritone-bass register, between guitar and bass.",
+      "song": "\"Lullaby\" — The Cure"
+    },
+    "Hendrix": {
+      "desc": "Standard tuned down a half step to E♭ — slinkier strings and a darker, fatter tone. Jimi's default.",
+      "song": "\"Purple Haze\" — Jimi Hendrix"
+    },
+    "C6": {
+      "desc": "The workhorse sixth-chord lap-steel tuning — rich western-swing, jazz and Hawaiian voicings (Jerry Byrd's C6).",
+      "song": "\"Steel Guitar Rag\" — Bob Wills & His Texas Playboys"
+    },
+    "A6": {
+      "desc": "C6 transposed down a minor third for a warmer, lower western-swing voice (Herb Remington, Leon McAuliffe).",
+      "song": "\"Remington Ride\" — Herb Remington"
+    },
+    "C6/A7": {
+      "desc": "A Jerry-Byrd-style hybrid giving both a C6 and an A7 in one tuning, for Hawaiian and country lap steel.",
+      "song": "Hawaiian & country lap steel — Jerry Byrd"
+    },
+    "E7": {
+      "desc": "A sevenths tuning — bluesy, dominant colour favoured for blues and rock slide (layout varies).",
+      "song": "early Hawaiian & blues lap steel — Sol Hoʻopiʻi"
+    },
+    "E13": {
+      "desc": "A rich extended-chord tuning for western swing and jazz lap steel (the McAuliffe/Remington era).",
+      "song": "western swing — Bob Wills & His Texas Playboys"
+    },
+    "E9 lap": {
+      "desc": "Lush E-major-9 voicings for non-pedal lap steel — the non-pedal cousin of the country pedal-steel E9.",
+      "song": "Hawaiian & rock lap steel"
+    },
+    "B11": {
+      "desc": "A gorgeous, quintessentially Hawaiian lap-steel tuning full of extended chords; also half of Don Helms' Hank Williams double-neck (E6/B11).",
+      "song": "Hank Williams sides (Don Helms) — e.g. \"Your Cheatin' Heart\""
+    },
+    "Cyrus Hybrid": {
+      "desc": "A specialised hybrid voicing — the open strings spell a Gmaj9."
+    },
+    "Open E": {
+      "desc": "An open E-major chord — the classic bottleneck-slide tuning.",
+      "song": "\"Statesboro Blues\" — The Allman Brothers Band (Duane Allman)"
+    },
+    "Open D": {
+      "desc": "Open D major (\"Vestapol\") — a cornerstone of Delta blues and folk fingerstyle/slide.",
+      "song": "\"Little Martha\" — The Allman Brothers Band"
+    },
+    "Open G Dobro": {
+      "desc": "The standard resonator/Dobro tuning — the sound of bluegrass and Hawaiian-style slide.",
+      "song": "bluegrass Dobro — Jerry Douglas"
+    },
+    "Open G low": {
+      "desc": "Full six-string open G — the classic Delta-blues \"Spanish\" tuning and the basis of the Stones' open-G sound.",
+      "song": "\"Cross Road Blues\" — Robert Johnson"
+    },
+    "Open A high": {
+      "desc": "Open A major — open G raised a whole step for a brighter, tenser slide tone, with the same chord shapes. The higher-voiced counterpart to open G."
+    },
+    "Drop D": {
+      "desc": "The low string dropped a whole step for one-finger power chords and a heavier low end.",
+      "song": "\"Everlong\" — Foo Fighters"
+    },
+    "Drop Db": {
+      "desc": "Drop D shifted down a half step (Drop C#) for extra weight while staying playable.",
+      "song": "\"Them Bones\" — Alice in Chains"
+    },
+    "Drop C": {
+      "desc": "Drop D down a whole step — a huge nu-metal/metalcore rhythm tuning.",
+      "song": "\"Chop Suey!\" — System of a Down"
+    },
+    "Drop B": {
+      "desc": "Drop D down a minor third — heavy, tight and modern.",
+      "song": "\"Duality\" — Slipknot"
+    },
+    "Drop Bb": {
+      "desc": "Drop D down a fourth (Drop A#) for a crushing low register.",
+      "song": "\"Shadow Moses\" — Bring Me The Horizon"
+    },
+    "Drop A": {
+      "desc": "The low string down a fourth then dropped — a metalcore/deathcore staple.",
+      "song": "\"Psychosocial\" — Slipknot"
+    },
+    "Fripp NST": {
+      "desc": "Robert Fripp's New Standard Tuning — all fifths (plus a top minor third), built for wide, ringing intervals.",
+      "song": "\"Frame by Frame\" — King Crimson"
+    },
+    "Gambale": {
+      "desc": "Frank Gambale's tuning — the whole guitar up a fourth with the top two strings dropped an octave, so standard shapes yield piano-like close voicings. Invented for his own fusion playing."
+    },
+    "Led Rain": {
+      "desc": "Jimmy Page's lush DADGAD variation (a Gsus4/D voicing), written for one specific song.",
+      "song": "\"The Rain Song\" — Led Zeppelin"
+    },
+    "Blur Song2": {
+      "desc": "Drop D grunge-pop — the low string falls a whole step for the woo-hoo riff's punch.",
+      "song": "\"Song 2\" — Blur"
+    },
+    "Schizophrenia": {
+      "desc": "Thurston Moore's clustered Sonic Youth drone tuning — three adjacent scale tones doubled, with no clear root.",
+      "song": "\"Schizophrenia\" — Sonic Youth"
+    },
+    "Nick Drake": {
+      "desc": "One of Nick Drake's signature open-C-based tunings (capo 2 on the record) — a wide, resonant shimmer.",
+      "song": "\"Pink Moon\" — Nick Drake"
+    },
+    "Keith Richards": {
+      "desc": "Keith's trademark — open G with the low string removed, played on a 5-string.",
+      "song": "\"Start Me Up\" — The Rolling Stones"
+    },
+    "Am. Football": {
+      "desc": "American Football's open-F(maj9) emo/math-rock tuning — the whole opening line falls under one finger.",
+      "song": "\"Never Meant\" — American Football"
+    },
+    "SoundG Wave": {
+      "desc": "Chris Cornell & Kim Thayil's drone tuning — often written EEBBBB, but Thayil says it's really EEBBBE.",
+      "song": "\"My Wave\" — Soundgarden"
+    },
+    "SoundG Sun": {
+      "desc": "Drop D — the low string falls a whole step; the swaying Leslie-swirl chords ride over it.",
+      "song": "\"Black Hole Sun\" — Soundgarden"
+    },
+    "Young Cinnamon": {
+      "desc": "Neil Young's crunch tuning — the low string drops a whole step for the riff's growl.",
+      "song": "\"Cinnamon Girl\" — Neil Young"
+    },
+    "Joni Cab": {
+      "desc": "Joni built her sound on personal open tunings, described by bass note plus fret offsets (her catalog uses 50+).",
+      "song": "\"Big Yellow Taxi\" — Joni Mitchell"
+    },
+    "Joni Sides": {
+      "desc": "Joni's open-D base — a Dmaj7 rings on the open strings. On the record she capos 4 (sounding F# major); this is the no-capo tuning.",
+      "song": "\"Both Sides, Now\" — Joni Mitchell"
+    },
+    "Radio Pyramid": {
+      "desc": "Open F# major — let the top F# ring as a pedal while barre shapes slide beneath for the song's swaying, ambiguous chords.",
+      "song": "\"Pyramid Song\" — Radiohead"
+    },
+    "Radio Everything": {
+      "desc": "An \"Everything In Its Right Place\" voicing built around a C pedal on the top string (the same pedal-note trick as Pyramid Song's F#). Open strings ring C G C G G# C; hold the G → C bender to push the neutral G string up a fourth while the top C keeps ringing.",
+      "song": "\"Everything In Its Right Place\" — Radiohead"
+    },
+    "Mandolin": {
+      "desc": "Standard mandolin, tuned in fifths like a violin.",
+      "song": "\"Losing My Religion\" — R.E.M. (Peter Buck)"
+    },
+    "Irish Bouzouki": {
+      "desc": "The Greek bouzouki adapted for Celtic music — flat-backed, tuned a fifth lower — as a rhythm and countermelody engine.",
+      "song": "Irish trad — Planxty (Andy Irvine & Dónal Lunny)"
+    },
+    "Greek Bouzouki": {
+      "desc": "The bright, tremolo-driven lead of Greek rebetiko and laïkó.",
+      "song": "\"Zorba's Dance (Sirtaki)\" — Mikis Theodorakis"
+    },
+    "Oud": {
+      "desc": "The fretless lute at the heart of Arabic and Turkish maqam music (tuning varies by region and maqam).",
+      "song": "Arabic maqam tradition — e.g. Munir Bashir"
+    },
+    "Charango": {
+      "desc": "A small Andean lute (traditionally armadillo-shell) with all strings inside one octave — the sparkle of Andean folk.",
+      "song": "\"El Cóndor Pasa\" — Los Incas"
+    },
+    "Saz / Bağlama": {
+      "desc": "Turkey's long-necked folk lute with microtonal, quarter-tone frets — the voice of the âşık poet-minstrels (many regional tunings).",
+      "song": "\"Uzun İnce Bir Yoldayım\" — Aşık Veysel"
+    },
+    "Cavaquinho": {
+      "desc": "A small Brazilian 4-string (open G) — the rhythmic-harmonic engine of samba and choro.",
+      "song": "\"Brasileirinho\" — Waldir Azevedo"
+    },
+    "Ukulele": {
+      "desc": "The classic re-entrant soprano/concert uke tuning, with a high g.",
+      "song": "\"Over the Rainbow\" — Israel Kamakawiwoʻole"
+    },
+    "Baritone Uke": {
+      "desc": "Tuned like a guitar's top four strings, an octave below a soprano uke — warm and mellow. Favoured in jazz and folk (e.g. Lyle Ritz)."
+    },
+    "Cuatro": {
+      "desc": "Venezuela's 4-string (re-entrant) — the rhythmic-harmonic base of joropo and música llanera.",
+      "song": "\"Alma Llanera\" (Venezuela's unofficial anthem)"
+    },
+    "Balalaika": {
+      "desc": "Russia's triangular folk lute, played with the fingers.",
+      "song": "\"Kalinka\" (traditional)"
+    },
+    "Sitar": {
+      "desc": "India's long-necked lute with sympathetic strings — here as Sa–Pa drones in C with the Ma melody string on top (Kharaj-Pancham style). The pedals are meend: wide gliding pulls up to a full fifth.",
+      "song": "\"Norwegian Wood\" — The Beatles"
+    },
+    "Banjo": {
+      "desc": "A re-entrant 5-string with a high drone — the bluegrass sound.",
+      "song": "\"Foggy Mountain Breakdown\" — Earl Scruggs"
+    },
+    "E9 Nashville": {
+      "desc": "THE country pedal-steel tuning — the crying, gliding sound you picture when you think \"pedal steel\" (Bud Isaacs, Buddy Emmons).",
+      "song": "\"Slowly\" — Webb Pierce (Bud Isaacs, 1954)"
+    },
+    "C6 Swing/Jazz": {
+      "desc": "The \"back neck\" of a double-neck pedal steel — used for western swing and jazz's fuller chord voicings (Buddy Emmons, Cindy Cashdollar).",
+      "song": "western swing — Bob Wills; jazz steel — Buddy Emmons"
+    },
+    "B6 Universal": {
+      "desc": "Jeff Newman's single-neck tuning that fuses the E9 (country) and C6 (jazz/swing) necks, so one neck covers both."
+    },
+    "White Keys": {
+      "desc": "The natural notes C D E F G A on six strings — the white-key set every mode is drawn from, with C on the low string as home. Identical to C Ionian."
+    },
+    "C Lydian": {
+      "desc": "The brightest mode — major with a raised 4th. Floating, film-score shimmer.",
+      "song": "\"Flying Theme\" — John Williams (E.T.)"
+    },
+    "C Ionian": {
+      "desc": "The plain major scale — the mode that feels like home.",
+      "song": "\"Let It Be\" — The Beatles"
+    },
+    "C Mixolydian": {
+      "desc": "Major with a flat 7th — the dominant, bluesy-rock colour. (The ♭7 has no open string in this set, so it shares the Ionian shape.)",
+      "song": "\"Sweet Home Alabama\" — Lynyrd Skynyrd"
+    },
+    "C Dorian": {
+      "desc": "Minor with a bright natural 6th — the hopeful, funky minor of jazz and modal rock.",
+      "song": "\"So What\" — Miles Davis"
+    },
+    "C Aeolian": {
+      "desc": "The natural minor scale — ♭3 ♭6 ♭7. The default \"sad\" minor.",
+      "song": "\"Losing My Religion\" — R.E.M."
+    },
+    "C Phrygian": {
+      "desc": "Minor with a flat 2nd — dark, Spanish/flamenco and metal tension.",
+      "song": "\"Wherever I May Roam\" — Metallica"
+    },
+    "C Locrian": {
+      "desc": "The darkest mode — a flat 2nd AND flat 5th give an unstable, diminished tonic.",
+      "song": "\"YYZ\" — Rush (main riff)"
+    }
+  }
+}
