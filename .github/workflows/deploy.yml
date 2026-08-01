@@ -6,12 +6,13 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Publishing goes to a `gh-pages` branch rather than through
+# actions/deploy-pages, because GITHUB_TOKEN is not a repo admin and so cannot
+# turn Pages on for a repo that has never had it. GitHub publishes a
+# `gh-pages` branch on its own, so a fresh fork deploys with no Settings visit.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# Never cancel a deploy midway; queue the next one instead.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -30,27 +31,20 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
-      # `enablement: true` turns Pages on via the API the first time this runs,
-      # so a fresh clone of this repo deploys without touching Settings.
-      - name: Setup Pages
-        if: github.event_name != 'pull_request'
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - name: Upload artifact
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
 
-  deploy:
-    needs: build
-    if: github.event_name != 'pull_request'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish to gh-pages
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          # .nojekyll keeps Pages from running the output through Jekyll, which
+          # would drop anything Vite hashes into an underscore-prefixed path.
+          touch dist/.nojekyll
+          cd dist
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Deploy ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
