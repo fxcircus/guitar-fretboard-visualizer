@@ -20,6 +20,7 @@ import {
   rankByNearness,
   rankSlantsByNearness,
   scanLabelsFor,
+  type BarPosition,
   type ChordQuality,
   type SlantPosition,
 } from './lib/chordEngine';
@@ -31,14 +32,12 @@ import {
   MIN_STRINGS,
   TUNINGS,
 } from './lib/tunings';
-import { PULL_MAX, PULL_MIN, applyPulls, normalizePulls, resolveTuning } from './lib/tuningState';
-import { COPEDENTS, combinePulls, copedentFor, pullsForControl } from './lib/copedents';
+import { applyPulls, normalizePulls, resolveTuning } from './lib/tuningState';
+import { deriveKey } from './lib/keyFromTuning';
 import {
   CHROMATIC_NOTES_FLATS,
   CHROMATIC_NOTES_SHARPS,
-  SCALE_NAMES,
   deriveScaleChords,
-  generateSpelledScale,
   noteToPitchClass,
 } from './lib/musicTheory';
 import { FretboardAudio, TONES, TONE_NAMES, type ToneName } from './lib/audio';
@@ -210,12 +209,6 @@ const StringVal = styled.div<{ $active?: boolean }>`
   line-height: 1.15;
 `;
 
-const StringSub = styled.span`
-  font-family: ${({ theme }) => theme.monoFamily};
-  font-size: 9px;
-  color: ${({ theme }) => theme.colors.textSecondary};
-`;
-
 const KeyChip = styled(Chip)`
   flex-direction: column;
   align-items: center;
@@ -297,14 +290,20 @@ const App: React.FC = () => {
     [state.pulls, stringCount]
   );
   const { tuning, pulled } = useMemo(() => applyPulls(baseTuning, pulls), [baseTuning, pulls]);
-  const anyPull = pulled.some(Boolean);
+
+  // The tuning IS the key: derived from the catalog entry or the identified
+  // open-stack chord. Custom tunings re-derive live as strings are retuned.
+  const tuningKey = useMemo(() => deriveKey(baseTuning), [baseTuning]);
 
   const flats =
     state.accidentals === 'flat'
       ? true
       : state.accidentals === 'sharp'
         ? false
-        : (baseTuning.preferFlats ?? state.keyRoot.includes('♭'));
+        : (baseTuning.preferFlats ??
+          // fall back to the key's own spelling lean (C minor reads in flats)
+          tuningKey.notes.filter((n) => n.includes('♭')).length >
+            tuningKey.notes.filter((n) => n.includes('♯')).length);
 
   const noteNames = flats ? CHROMATIC_NOTES_FLATS : CHROMATIC_NOTES_SHARPS;
 
@@ -340,21 +339,16 @@ const App: React.FC = () => {
   );
   const activeStrings = useMemo(() => (selected ? new Set(selected.strings) : null), [selected]);
 
-  // ── Key / scale ──────────────────────────────────────────────────────────
+  // ── Key / scale (derived from the tuning) ────────────────────────────────
   const scaleInfo = useMemo(() => {
-    const spelled = generateSpelledScale(state.keyRoot, state.scale);
-    const core =
-      spelled.length > 1 &&
-      noteToPitchClass(spelled[0]) === noteToPitchClass(spelled[spelled.length - 1])
-        ? spelled.slice(0, -1)
-        : spelled;
+    const core = tuningKey.notes;
     const pcs = new Set(core.map((n) => (((noteToPitchClass(n) ?? 0) % 12) + 12) % 12));
-    const keyRootPc = (((noteToPitchClass(state.keyRoot) ?? 0) % 12) + 12) % 12;
+    const keyRootPc = tuningKey.rootPc;
 
     // Scale-degree label per pitch class, spelled from the scale's own note
     // names (so Lydian's raised 4th reads ♯4, not ♭5).
     const degreeLabels = new Map<number, string>();
-    const rootLetter = state.keyRoot[0]?.toUpperCase();
+    const rootLetter = tuningKey.root[0]?.toUpperCase();
     const majorSemis = [0, 2, 4, 5, 7, 9, 11];
     core.forEach((name) => {
       const letter = name[0]?.toUpperCase();
@@ -367,7 +361,7 @@ const App: React.FC = () => {
       degreeLabels.set(pc, acc + degNum);
     });
     return { core, pcs, keyRootPc, degreeLabels };
-  }, [state.keyRoot, state.scale]);
+  }, [tuningKey]);
 
   const keyChords = useMemo(() => {
     // Diatonic triads are only well-defined for 7-note scales, where each
@@ -446,6 +440,47 @@ const App: React.FC = () => {
     [patch]
   );
 
+  // Snap the bar to a found position AND make the board display that chord:
+  // pick the chip whose string group is the position's grip (falling back to
+  // a same-name chip), so the found chord lights up without a second click.
+  const snapToPosition = useCallback(
+    (p: BarPosition) => {
+      setSlantPreviewKey(null);
+      const there = chordsAtFret(tuning.midi, p.fret);
+      let idx = there.findIndex(
+        (c) => c.strings.length === p.strings.length && c.strings[0] === p.strings[0]
+      );
+      if (idx < 0) {
+        idx = there.findIndex(
+          (c) => c.match.rootPc === p.match.rootPc && c.match.suffix === p.match.suffix
+        );
+      }
+      if (idx >= 0) setSelectedChipIdx(idx);
+      patch({ barFret: p.fret });
+    },
+    [tuning, patch]
+  );
+
+  // Looking a chord up drives the board: the bar snaps to the nearest place
+  // that plays it (or previews the nearest slant when no straight bar can).
+  // Keyed on the target's identity so it fires once per lookup, not on every
+  // bar move — and not on mount, so a shared link's bar position is honoured.
+  const targetIdentity = target ? `${target.rootPc}:${state.findSuffix}` : null;
+  const lastSnappedRef = useRef<string | null>(targetIdentity);
+  useEffect(() => {
+    if (targetIdentity === lastSnappedRef.current) return;
+    lastSnappedRef.current = targetIdentity;
+    if (!targetIdentity) return;
+    if (targetPositions.length > 0) {
+      snapToPosition(targetPositions[0]);
+    } else if (targetSlants.length > 0) {
+      const s = targetSlants[0];
+      setSlantPreviewKey(slantKey(s));
+      patch({ barFret: Math.min(s.lowFret, s.highFret) });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetIdentity]);
+
   // The 6th/m7-style alias of the selected group ("C6 = Am7")
   const alias = useMemo(() => {
     if (!selected) return null;
@@ -496,33 +531,16 @@ const App: React.FC = () => {
     [state.view, audio, tuning, strum, activeStringIdxs]
   );
 
-  // ── Copedent ─────────────────────────────────────────────────────────────
-  const copedent = useMemo(
-    () => copedentFor(state.tuningId, baseTuning.copedent, rootPc ?? midiPc(baseTuning.midi[0])),
-    [state.tuningId, baseTuning, rootPc]
-  );
-  const [engaged, setEngaged] = useState<string[]>([]);
-  useEffect(() => setEngaged([]), [baseSignature]);
-
-  const toggleControl = (id: string) => {
-    const next = engaged.includes(id) ? engaged.filter((c) => c !== id) : [...engaged, id];
-    setEngaged(next);
-    const set = COPEDENTS[copedent.id];
-    const arrays = next
-      .map((cid) => set.controls.find((c) => c.id === cid))
-      .filter((c): c is NonNullable<typeof c> => !!c)
-      .map((c) => pullsForControl(baseTuning.midi, copedent.rootPc, c));
-    patch({ pulls: combinePulls(baseTuning.midi, arrays) });
-  };
-
   // ── Handlers ─────────────────────────────────────────────────────────────
+  // (Pedals/copedents are out of the UI for now — the engine for them lives on
+  // in lib/copedents.ts for the planned VG-800 integration. `pulls` in the
+  // state still applies, so pedal-era share links keep sounding right.)
   const handleTuningChange = (id: string) => {
     if (id === CUSTOM_TUNING_ID) {
       patch({ tuningId: id, customTuning: [...baseTuning.midi], pulls: [] });
     } else {
       patch({ tuningId: id, pulls: [] });
     }
-    setEngaged([]);
   };
 
   const editString = (i: number, delta: number) => {
@@ -540,18 +558,6 @@ const App: React.FC = () => {
   const removeString = () => {
     if (stringCount <= MIN_STRINGS) return;
     patch({ customTuning: baseTuning.midi.slice(0, -1), pulls: [] });
-  };
-
-  const editPull = (i: number, delta: number) => {
-    const next = [...pulls];
-    next[i] = Math.min(PULL_MAX, Math.max(PULL_MIN, (next[i] || 0) + delta));
-    setEngaged([]);
-    patch({ pulls: next });
-  };
-
-  const clearPulls = () => {
-    setEngaged([]);
-    patch({ pulls: [] });
   };
 
   const copyShare = async () => {
@@ -708,28 +714,17 @@ const App: React.FC = () => {
         <Panel>
           <Row>
             <Label>Key</Label>
-            <Select
-              value={state.keyRoot}
-              onChange={(e) => patch({ keyRoot: e.target.value })}
-              aria-label="Key root"
-            >
-              {rootOptions.map((r) => (
-                <option key={r.pc} value={r.name}>
-                  {r.name}
-                </option>
-              ))}
-            </Select>
-            <Select
-              value={state.scale}
-              onChange={(e) => patch({ scale: e.target.value })}
-              aria-label="Scale"
-            >
-              {SCALE_NAMES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </Select>
+            <TargetName>
+              {tuningKey.root} {tuningKey.scale}
+            </TargetName>
+            <Hint>
+              {tuningKey.source === 'chord'
+                ? 'from the open-string chord'
+                : tuningKey.source === 'fallback'
+                  ? 'rooted on the lowest string'
+                  : 'the tuning’s home key'}{' '}
+              — pick a different tuning to change it
+            </Hint>
             <Toggle role="group" aria-label="Key guide">
               {(['chords', 'scale', 'off'] as const).map((mode) => (
                 <ToggleBtn
@@ -753,13 +748,13 @@ const App: React.FC = () => {
           </Row>
 
           {state.guide === 'chords' && keyChords.length > 0 && (
-            <Row role="group" aria-label={`Diatonic chords in ${state.keyRoot} ${state.scale}`}>
+            <Row role="group" aria-label={`Diatonic chords in ${tuningKey.root} ${tuningKey.scale}`}>
               {keyChords.map(({ deg, nearest }, i) => (
                 <KeyChip
                   key={i}
                   $disabled={!nearest}
                   disabled={!nearest}
-                  onClick={() => nearest && setBarFret(nearest.fret)}
+                  onClick={() => nearest && snapToPosition(nearest)}
                   title={
                     nearest
                       ? `${deg.triadName ?? deg.roman} — bar at fret ${nearest.fret}${
@@ -819,7 +814,7 @@ const App: React.FC = () => {
                     <Chip
                       key={p.fret}
                       $active={p.fret === state.barFret}
-                      onClick={() => setBarFret(p.fret)}
+                      onClick={() => snapToPosition(p)}
                       title={`Snap the bar to fret ${p.fret} (${chordLabel(p.match, flats)}${
                         p.isFullTarget ? '' : ', partial'
                       }) — strings ${stringCount - p.strings[0]}–${
@@ -860,64 +855,11 @@ const App: React.FC = () => {
           )}
         </Panel>
 
-        <Panel>
-          <Row>
-            <Label>{COPEDENTS[copedent.id].label}</Label>
-            <Hint>
-              {COPEDENTS[copedent.id].blurb} Root {displayNote(copedent.rootPc, flats)}.
-            </Hint>
-          </Row>
-          <Row role="group" aria-label="Pedals and levers">
-            {COPEDENTS[copedent.id].controls.map((c) => (
-              <Chip
-                key={c.id}
-                $active={engaged.includes(c.id)}
-                aria-pressed={engaged.includes(c.id)}
-                onClick={() => toggleControl(c.id)}
-                title={c.action}
-              >
-                {c.name}
-                <Sub>{c.kind}</Sub>
-              </Chip>
-            ))}
-            {anyPull && (
-              <Chip onClick={clearPulls} title="Release every pull">
-                clear
-              </Chip>
-            )}
-          </Row>
-          <Row>
-            <Label>Pulls</Label>
-            <Hint>behind-the-bar bends — nudge any string by hand</Hint>
-          </Row>
-          <Row role="group" aria-label="Behind-the-bar pulls">
-            {baseTuning.midi.map((m, i) => {
-              const off = pulls[i] ?? 0;
-              const sNum = stringCount - i;
-              return (
-                <StringBox key={i} $active={off !== 0}>
-                  <IconBtn onClick={() => editPull(i, 1)} aria-label={`Raise string ${sNum}`}>
-                    ▲
-                  </IconBtn>
-                  <StringVal $active={off !== 0} title={`String ${sNum}`}>
-                    {displayNote(midiPc(m + off), flats)}
-                    <br />
-                    <StringSub>{off > 0 ? `+${off}` : off < 0 ? `${off}` : '·'}</StringSub>
-                  </StringVal>
-                  <IconBtn onClick={() => editPull(i, -1)} aria-label={`Lower string ${sNum}`}>
-                    ▼
-                  </IconBtn>
-                </StringBox>
-              );
-            })}
-          </Row>
-        </Panel>
-
         <Readout>
           <ReadoutInfo>
             <Label>
               {state.view === 'map'
-                ? `${state.keyRoot} ${state.scale} across the neck`
+                ? `${tuningKey.root} ${tuningKey.scale} across the neck`
                 : `Sounding chord — ${state.barFret === 0 ? 'open strings' : `bar at fret ${state.barFret}`}`}
             </Label>
             <ChordName $quality={selected ? selected.match.quality : null}>

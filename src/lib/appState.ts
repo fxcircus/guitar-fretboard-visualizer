@@ -8,13 +8,14 @@
 import { CUSTOM_TUNING_ID, DEFAULT_TUNING_ID, getTuning } from './tunings';
 import { PULL_MAX, PULL_MIN } from './tuningState';
 import { CHORD_TYPES } from './chordEngine';
-import { SCALE_INTERVALS } from './musicTheory';
 import { TONE_NAMES, type ToneName } from './audio';
 
 export type NeckView = 'bar' | 'map';
 export type KeyGuide = 'chords' | 'scale' | 'off';
 export type Accidentals = 'auto' | 'sharp' | 'flat';
 
+// There is deliberately no key/scale here: the key is derived from the
+// selected tuning (see keyFromTuning.ts) — the tuning IS the key.
 export interface AppState {
   tuningId: string;
   /** Only meaningful when tuningId === 'custom'. */
@@ -22,8 +23,6 @@ export interface AppState {
   barFret: number;
   maxFret: number;
   view: NeckView;
-  keyRoot: string;
-  scale: string;
   guide: KeyGuide;
   /** Per-string semitone bends, low string first. */
   pulls: number[];
@@ -43,8 +42,6 @@ export const DEFAULT_STATE: AppState = {
   barFret: 0,
   maxFret: 12,
   view: 'bar',
-  keyRoot: 'C',
-  scale: 'Major',
   guide: 'chords',
   pulls: [],
   accidentals: 'auto',
@@ -67,8 +64,6 @@ export function encodeState(s: AppState): string {
   p.set('f', String(s.barFret));
   if (s.maxFret !== DEFAULT_STATE.maxFret) p.set('m', String(s.maxFret));
   if (s.view !== DEFAULT_STATE.view) p.set('v', s.view);
-  p.set('k', s.keyRoot);
-  p.set('s', s.scale);
   if (s.guide !== DEFAULT_STATE.guide) p.set('g', s.guide);
   if (s.pulls.some(Boolean)) p.set('p', s.pulls.join('.'));
   if (s.accidentals !== DEFAULT_STATE.accidentals) p.set('a', s.accidentals);
@@ -99,11 +94,8 @@ export function decodeState(hash: string, base: AppState = DEFAULT_STATE): AppSt
   const v = p.get('v');
   if (v === 'bar' || v === 'map') next.view = v;
 
-  const k = p.get('k');
-  if (k) next.keyRoot = k;
-
-  const s = p.get('s');
-  if (s && SCALE_INTERVALS[s]) next.scale = s;
+  // Older links carried k= (key root) and s= (scale); the key now derives from
+  // the tuning, so those params are simply ignored.
 
   const g = p.get('g');
   if (g === 'chords' || g === 'scale' || g === 'off') next.guide = g;

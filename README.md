@@ -9,11 +9,14 @@ the questions a player actually asks:
 - **What chord am I sounding?** Lay the bar at a fret and read the name, the
   formula, and the notes. Every chord hiding in an adjacent string group is
   listed as a chip.
-- **Where do I play *this* chord?** Look up any chord and the board rings the
-  frets where a straight bar voices it. When no straight bar can, it offers the
-  two-string **slants** that will.
-- **What does the key look like here?** Switch to **Map** and the whole scale
-  lights up across the neck, degree-labelled.
+- **Where do I play *this* chord?** Look one up and the bar snaps to the nearest
+  place that plays it, with the grip lit on the board. Other positions are one
+  click away; when no straight bar works, it previews the two-string **slants**
+  that do.
+- **What key am I in?** The tuning *is* the key — C6 lives in C major, E13 in
+  E Mixolydian, a Lydian mode neck in C Lydian. The key, its diatonic chords,
+  and the **Map** view's scale all derive from the tuning you picked. There is
+  deliberately no key selector.
 
 No install, no account, no assets to download. It is one static page; the sound
 is synthesised in the browser.
@@ -62,26 +65,30 @@ the wrong register for a diagram.
 `src/lib/tunings.ts` is generated. Regenerate with `npm run tunings`; the tests
 in `src/lib/tunings.test.ts` are the encoding contract.
 
-## Pedals
+## How the key is derived
 
-Pedal-steel necks carry their real copedent — the standard Emmons **E9** set
-(pedals A/B/C, LKL, LKR, vertical) and the **C6** back-neck mechanism. Every
-other tuning gets a set of *virtual* pedals: the same classic moves (raise the
-5th, lower the 3rd, the I → IV cry) applied to whatever chord the bar is
-currently sounding, so you can hear what a lap steel tuning would do with a
-mechanism it does not have.
+`src/lib/keyFromTuning.ts` resolves each tuning's key in three steps: an
+explicit key pinned in the catalog (mode necks, guitar and pedal-steel tunings,
+songs) wins; otherwise the identified open-stack chord decides — its root is the
+key root, its quality picks the scale (major family → Major, dominant →
+Mixolydian, m6 → Dorian, 7♭9 → Phrygian dominant…); and an unnameable stack
+falls back to the lowest string with the first common scale that keeps every
+open string diatonic. Custom tunings re-derive live as you retune strings.
 
-Controls are described the way a steel mechanic describes them — by which chord
-degree they move and by how much — and resolve to strings by finding every
-string carrying that degree. Underneath, a pedal and a hand-dialled
-behind-the-bar **pull** are the same thing, so you can engage a pedal and then
-nudge one string off it.
+## Pedals (parked)
+
+The pedal/copedent engine — the Emmons E9 and C6 mechanisms plus the virtual
+pedal set, all expressed as per-string semitone pulls — lives on in
+`src/lib/copedents.ts` with its tests, but is out of the UI for now. It is the
+integration seam for the planned merge into the
+[VG-800 controller](https://github.com/fxcircus/vg800_midi_control), where real
+pedals exist.
 
 ## Sharing
 
-The whole board lives in the URL: tuning, bar position, key, scale, pulls,
-looked-up chord, neck length. Hit **Share** and send the link; it opens exactly
-what you were looking at. Your last board is also remembered locally.
+The whole board lives in the URL: tuning, bar position, looked-up chord, neck
+length, view. Hit **Share** and send the link; it opens exactly what you were
+looking at. Your last board is also remembered locally.
 
 ## Running it
 
@@ -124,7 +131,8 @@ src/lib/
   chordEngine.ts   identify chords, find bar positions, find slants
   tunings.ts       the catalog (generated)
   tuningState.ts   custom tunings and per-string pulls
-  copedents.ts     pedal / knee-lever sets
+  keyFromTuning.ts derives the key from the tuning
+  copedents.ts     pedal / knee-lever sets (parked, for the VG-800 merge)
   musicTheory.ts   note spelling, scales, diatonic chords
   audio.ts         Web Audio voices, with the bar scoop
   appState.ts      URL and localStorage round-tripping

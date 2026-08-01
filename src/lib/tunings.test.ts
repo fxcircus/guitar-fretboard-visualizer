@@ -156,7 +156,10 @@ describe('catalog integrity', () => {
     expect(getTuning('drop-d')!.midi).toEqual([38, 45, 50, 55, 59, 64]);
     expect(getTuning('fripp-nst')!.midi).toEqual([36, 43, 50, 57, 64, 67]); // all fifths + m3
     expect(getTuning('ukulele')!.midi).toEqual([67, 60, 64, 69]); // re-entrant high G
-    expect(getTuning('ps-e9-nashville')!.midi).toEqual([47, 50, 52, 54, 56, 59, 64, 68, 75, 78]);
+    // E9 is re-entrant: chromatic strings 2 and 1 (D♯4, F♯4) sit below
+    // string 3's G♯4 — the famous "strings out of pitch order" of pedal steel.
+    expect(getTuning('ps-e9-nashville')!.midi).toEqual([47, 50, 52, 54, 56, 59, 64, 68, 63, 66]);
+    expect(getTuning('ps-e9-nashville')!.reentrant).toBe(true);
   });
 
   test('standard tuning is the guitar it claims to be', () => {

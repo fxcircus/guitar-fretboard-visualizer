@@ -36,6 +36,11 @@ export interface Tuning {
   description?: string;
   /** A signature recording in this tuning. */
   song?: string;
+  /**
+   * The key this tuning implies, when the open-stack chord derivation
+   * (see keyFromTuning.ts) would get it wrong. Scale is a SCALE_INTERVALS name.
+   */
+  key?: { root: string; scale: string };
   /** Which pedal-steel copedent this neck carries (see copedents.ts). */
   copedent?: 'e9' | 'c6';
   /** Stack does not ascend — high-strung, re-entrant, or octave-doubled. */
@@ -71,6 +76,7 @@ export const TUNINGS: Tuning[] = [
     spellings: ["C♯", "E", "G", "A", "C", "E"],
     description:
       "C6 with the low C raised to C♯ — the top four strings keep C6, the bottom four spell A7. Sixth and dominant worlds under one bar (Jerry Byrd).",
+    key: { root: "C", scale: "Major" },
   },
   {
     id: "e7",
@@ -177,6 +183,7 @@ export const TUNINGS: Tuning[] = [
     group: "common",
     midi: [40, 45, 50, 55, 59, 64],
     spellings: ["E", "A", "D", "G", "B", "E"],
+    key: { root: "E", scale: "Minor" },
   },
   {
     id: "dadgad",
@@ -187,6 +194,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Modal \"Celtic\" tuning — the open strings ring a Dsus4. Pioneered by Davey Graham.",
     song: "\"She Moved Through the Fair\" — Davey Graham",
+    key: { root: "D", scale: "Mixolydian" },
   },
   {
     id: "nashville",
@@ -197,6 +205,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "\"High-strung\" — the lower four strings swap to light gauges an octave up for a shimmering, 12-string-like chime. A studio doubling trick.",
     song: "\"Wild Horses\" — The Rolling Stones",
+    key: { root: "E", scale: "Minor" },
     reentrant: true,
   },
   {
@@ -208,6 +217,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "A long-scale guitar tuned a fourth low (B to B); born in surf and spaghetti-western scores.",
     song: "\"Wichita Lineman\" — Glen Campbell",
+    key: { root: "B", scale: "Minor" },
   },
   {
     id: "bass-vi",
@@ -218,6 +228,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "The whole guitar dropped a full octave — the Fender Bass VI's baritone-bass register, between guitar and bass.",
     song: "\"Lullaby\" — The Cure",
+    key: { root: "E", scale: "Minor" },
   },
   {
     id: "hendrix",
@@ -228,6 +239,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Standard tuned down a half step to E♭ — slinkier strings and a darker, fatter tone. Jimi's default.",
     song: "\"Purple Haze\" — Jimi Hendrix",
+    key: { root: "E♭", scale: "Minor" },
     preferFlats: true,
   },
   {
@@ -239,6 +251,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "The low string dropped a whole step for one-finger power chords and a heavier low end.",
     song: "\"Everlong\" — Foo Fighters",
+    key: { root: "D", scale: "Major" },
   },
   {
     id: "drop-db",
@@ -249,6 +262,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Drop D shifted down a half step (Drop C#) for extra weight while staying playable.",
     song: "\"Them Bones\" — Alice in Chains",
+    key: { root: "C♯", scale: "Minor" },
     preferFlats: true,
   },
   {
@@ -260,6 +274,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Drop D down a whole step — a huge nu-metal/metalcore rhythm tuning.",
     song: "\"Chop Suey!\" — System of a Down",
+    key: { root: "C", scale: "Minor" },
   },
   {
     id: "drop-b",
@@ -270,6 +285,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Drop D down a minor third — heavy, tight and modern.",
     song: "\"Duality\" — Slipknot",
+    key: { root: "B", scale: "Minor" },
     preferFlats: true,
   },
   {
@@ -281,6 +297,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Drop D down a fourth (Drop A#) for a crushing low register.",
     song: "\"Shadow Moses\" — Bring Me The Horizon",
+    key: { root: "B♭", scale: "Minor" },
     preferFlats: true,
   },
   {
@@ -292,6 +309,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "The low string down a fourth then dropped — a metalcore/deathcore staple.",
     song: "\"Psychosocial\" — Slipknot",
+    key: { root: "A", scale: "Minor" },
   },
   {
     id: "fripp-nst",
@@ -311,6 +329,7 @@ export const TUNINGS: Tuning[] = [
     spellings: ["A", "D", "G", "C", "E", "A"],
     description:
       "Frank Gambale's tuning — the whole guitar up a fourth with the top two strings dropped an octave, so standard shapes yield piano-like close voicings. Invented for his own fusion playing.",
+    key: { root: "A", scale: "Minor" },
     reentrant: true,
   },
   {
@@ -321,6 +340,7 @@ export const TUNINGS: Tuning[] = [
     spellings: ["D", "A", "D", "G", "A", "D"],
     description:
       "Led Zeppelin · “Kashmir” (Jimmy Page, on his Danelectro)",
+    key: { root: "D", scale: "Mixolydian" },
   },
   {
     id: "led-rain",
@@ -331,6 +351,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Jimmy Page's lush DADGAD variation (a Gsus4/D voicing), written for one specific song.",
     song: "\"The Rain Song\" — Led Zeppelin",
+    key: { root: "G", scale: "Major" },
   },
   {
     id: "blur-song2",
@@ -341,6 +362,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Drop D grunge-pop — the low string falls a whole step for the woo-hoo riff's punch.",
     song: "\"Song 2\" — Blur",
+    key: { root: "D", scale: "Major" },
   },
   {
     id: "schizophrenia",
@@ -351,6 +373,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Thurston Moore's clustered Sonic Youth drone tuning — three adjacent scale tones doubled, with no clear root.",
     song: "\"Schizophrenia\" — Sonic Youth",
+    key: { root: "G", scale: "Major" },
   },
   {
     id: "nick-drake",
@@ -401,6 +424,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Drop D — the low string falls a whole step; the swaying Leslie-swirl chords ride over it.",
     song: "\"Black Hole Sun\" — Soundgarden",
+    key: { root: "D", scale: "Major" },
   },
   {
     id: "young-cinnamon",
@@ -411,6 +435,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Neil Young's crunch tuning — the low string drops a whole step for the riff's growl.",
     song: "\"Cinnamon Girl\" — Neil Young",
+    key: { root: "D", scale: "Major" },
   },
   {
     id: "joni-cab",
@@ -451,6 +476,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "An \"Everything In Its Right Place\" voicing built around a C pedal on the top string (the same pedal-note trick as Pyramid Song's F#). Open strings ring C G C G G# C; hold the G → C bender to push the neutral G string up a fourth while the top C keeps ringing.",
     song: "\"Everything In Its Right Place\" — Radiohead",
+    key: { root: "C", scale: "Phrygian" },
   },
   {
     id: "white-keys",
@@ -460,6 +486,7 @@ export const TUNINGS: Tuning[] = [
     spellings: ["C", "D", "E", "F", "G", "A"],
     description:
       "The natural notes C D E F G A on six strings — the white-key set every mode is drawn from, with C on the low string as home. Identical to C Ionian.",
+    key: { root: "C", scale: "Major" },
   },
   {
     id: "c-lydian",
@@ -470,6 +497,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "The brightest mode — major with a raised 4th. Floating, film-score shimmer.",
     song: "\"Flying Theme\" — John Williams (E.T.)",
+    key: { root: "C", scale: "Lydian" },
   },
   {
     id: "c-ionian",
@@ -480,6 +508,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "The plain major scale — the mode that feels like home.",
     song: "\"Let It Be\" — The Beatles",
+    key: { root: "C", scale: "Major" },
   },
   {
     id: "c-mixolydian",
@@ -490,6 +519,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Major with a flat 7th — the dominant, bluesy-rock colour. (The ♭7 has no open string in this set, so it shares the Ionian shape.)",
     song: "\"Sweet Home Alabama\" — Lynyrd Skynyrd",
+    key: { root: "C", scale: "Mixolydian" },
   },
   {
     id: "c-dorian",
@@ -500,6 +530,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Minor with a bright natural 6th — the hopeful, funky minor of jazz and modal rock.",
     song: "\"So What\" — Miles Davis",
+    key: { root: "C", scale: "Dorian" },
     preferFlats: true,
   },
   {
@@ -511,6 +542,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "The natural minor scale — ♭3 ♭6 ♭7. The default \"sad\" minor.",
     song: "\"Losing My Religion\" — R.E.M.",
+    key: { root: "C", scale: "Minor" },
     preferFlats: true,
   },
   {
@@ -522,6 +554,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Minor with a flat 2nd — dark, Spanish/flamenco and metal tension.",
     song: "\"Wherever I May Roam\" — Metallica",
+    key: { root: "C", scale: "Phrygian" },
     preferFlats: true,
   },
   {
@@ -533,6 +566,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "The darkest mode — a flat 2nd AND flat 5th give an unstable, diminished tonic.",
     song: "\"YYZ\" — Rush (main riff)",
+    key: { root: "C", scale: "Locrian" },
     preferFlats: true,
   },
   {
@@ -544,6 +578,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Standard mandolin, tuned in fifths like a violin.",
     song: "\"Losing My Religion\" — R.E.M. (Peter Buck)",
+    key: { root: "G", scale: "Major" },
   },
   {
     id: "irish-bouzouki",
@@ -554,6 +589,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "The Greek bouzouki adapted for Celtic music — flat-backed, tuned a fifth lower — as a rhythm and countermelody engine.",
     song: "Irish trad — Planxty (Andy Irvine & Dónal Lunny)",
+    key: { root: "D", scale: "Major" },
   },
   {
     id: "greek-bouzouki",
@@ -564,6 +600,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "The bright, tremolo-driven lead of Greek rebetiko and laïkó.",
     song: "\"Zorba's Dance (Sirtaki)\" — Mikis Theodorakis",
+    key: { root: "D", scale: "Minor" },
   },
   {
     id: "oud",
@@ -574,6 +611,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "The fretless lute at the heart of Arabic and Turkish maqam music (tuning varies by region and maqam).",
     song: "Arabic maqam tradition — e.g. Munir Bashir",
+    key: { root: "C", scale: "Major" },
   },
   {
     id: "charango",
@@ -644,6 +682,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Venezuela's 4-string (re-entrant) — the rhythmic-harmonic base of joropo and música llanera.",
     song: "\"Alma Llanera\" (Venezuela's unofficial anthem)",
+    key: { root: "D", scale: "Major" },
     reentrant: true,
   },
   {
@@ -655,6 +694,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "Russia's triangular folk lute, played with the fingers.",
     song: "\"Kalinka\" (traditional)",
+    key: { root: "A", scale: "Major" },
   },
   {
     id: "banjo",
@@ -670,22 +710,26 @@ export const TUNINGS: Tuning[] = [
     id: "ps-e9-nashville",
     name: "E9 Nashville",
     group: "pedal-steel",
-    midi: [47, 50, 52, 54, 56, 59, 64, 68, 75, 78],
+    midi: [47, 50, 52, 54, 56, 59, 64, 68, 63, 66],
     spellings: ["B", "D", "E", "F♯", "G♯", "B", "E", "G♯", "D♯", "F♯"],
     description:
       "THE country pedal-steel tuning — the crying, gliding sound you picture when you think \"pedal steel\" (Bud Isaacs, Buddy Emmons).",
     song: "\"Slowly\" — Webb Pierce (Bud Isaacs, 1954)",
+    key: { root: "E", scale: "Major" },
     copedent: "e9",
+    reentrant: true,
   },
   {
     id: "ps-e9-lanois",
     name: "E9 Lanois",
     group: "pedal-steel",
-    midi: [47, 47, 52, 52, 56, 59, 64, 68, 75, 78],
+    midi: [47, 47, 52, 52, 56, 59, 64, 68, 63, 66],
     spellings: ["B", "B", "E", "E", "G♯", "B", "E", "G♯", "D♯", "F♯"],
     description:
       "ambient variant · doubled low strings for 12-string shimmer",
+    key: { root: "E", scale: "Major" },
     copedent: "e9",
+    reentrant: true,
   },
   {
     id: "ps-c6-swing-jazz",
@@ -696,6 +740,7 @@ export const TUNINGS: Tuning[] = [
     description:
       "The \"back neck\" of a double-neck pedal steel — used for western swing and jazz's fuller chord voicings (Buddy Emmons, Cindy Cashdollar).",
     song: "western swing — Bob Wills; jazz steel — Buddy Emmons",
+    key: { root: "C", scale: "Major" },
     copedent: "c6",
   },
   {
@@ -706,6 +751,7 @@ export const TUNINGS: Tuning[] = [
     spellings: ["B", "D", "D", "F♯", "G♯", "B", "D", "G♯", "D♯", "F♯"],
     description:
       "Jeff Newman's single-neck tuning that fuses the E9 (country) and C6 (jazz/swing) necks, so one neck covers both.",
+    key: { root: "B", scale: "Major" },
     copedent: "e9",
   },
 ];

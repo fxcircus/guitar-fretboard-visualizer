@@ -82,6 +82,9 @@ const CURATED = [
     midi: [49, 52, 55, 57, 60, 64], spellings: ['C♯', 'E', 'G', 'A', 'C', 'E'],
     description:
       'C6 with the low C raised to C♯ — the top four strings keep C6, the bottom four spell A7. Sixth and dominant worlds under one bar (Jerry Byrd).',
+    // The full stack identifies as A7♯9, but the tuning's home is its C6
+    // world on the upper strings.
+    key: { root: 'C', scale: 'Major' },
   },
   {
     id: 'e7', name: 'E7', group: 'lap-steel',
@@ -151,6 +154,68 @@ const CURATED = [
   },
 ];
 
+// ── Keys ───────────────────────────────────────────────────────────────────
+// The app derives each tuning's key from its identified open-stack chord
+// (C6 → C Major, E13 → E Mixolydian…). These overrides cover the tunings
+// where that derivation is wrong or undefined:
+//   · guitar tunings, whose open strings spell an incidental chord (standard
+//     E A D G B E reads as G6/9, but nobody plays it in G) — rooted instead
+//     on the low string, in the scale its repertoire actually uses
+//   · drop tunings — riff tunings rooted on the drop note (Drop D's heritage
+//     is major; the lower drops are metal, so minor)
+//   · artist tunings, keyed to the song they exist for
+//   · pedal-steel necks, whose 10-string stacks are chromatic soups
+//   · anything chordless (drones, clusters, the mode necks)
+const SCALE_NAMES = [
+  'Major', 'Minor', 'Dorian', 'Phrygian', 'Lydian', 'Mixolydian', 'Locrian',
+  'Harmonic Minor', 'Melodic Minor', 'Phrygian Dominant',
+];
+const KEY_OVERRIDES = {
+  // Guitar — common. Standard-family roots on the low E; all six open strings
+  // are diatonic to E minor.
+  Standard: { root: 'E', scale: 'Minor' },
+  Nashville: { root: 'E', scale: 'Minor' },
+  'Bass VI': { root: 'E', scale: 'Minor' },
+  Baritone: { root: 'B', scale: 'Minor' }, // standard down a 4th
+  Hendrix: { root: 'E♭', scale: 'Minor' },
+  DADGAD: { root: 'D', scale: 'Mixolydian' }, // the Celtic modal D
+  // Drop
+  'Drop D': { root: 'D', scale: 'Major' },
+  'Drop Db': { root: 'C♯', scale: 'Minor' },
+  'Drop C': { root: 'C', scale: 'Minor' },
+  'Drop B': { root: 'B', scale: 'Minor' },
+  'Drop Bb': { root: 'B♭', scale: 'Minor' },
+  'Drop A': { root: 'A', scale: 'Minor' },
+  // Artists — keyed to the song
+  Gambale: { root: 'A', scale: 'Minor' }, // fourths tuning; low string A
+  'Led Kashmir': { root: 'D', scale: 'Mixolydian' },
+  'Led Rain': { root: 'G', scale: 'Major' },
+  'Blur Song2': { root: 'D', scale: 'Major' },
+  Schizophrenia: { root: 'G', scale: 'Major' }, // F♯ G A cluster = G-major neighbours
+  'SoundG Sun': { root: 'D', scale: 'Major' },
+  'Young Cinnamon': { root: 'D', scale: 'Major' },
+  'Radio Everything': { root: 'C', scale: 'Phrygian' }, // C–D♭maj7–E♭6 changes
+  // World
+  Mandolin: { root: 'G', scale: 'Major' }, // GDAE identifies as A7sus4; fiddle tunes live in G/D
+  Oud: { root: 'C', scale: 'Major' }, // CFADGC spells F6/9, but the maqam anchor is C
+  'Irish Bouzouki': { root: 'D', scale: 'Major' }, // GDAD backs D-centric trad
+  'Greek Bouzouki': { root: 'D', scale: 'Minor' }, // CFAD is strung for Dm rebetiko
+  Cuatro: { root: 'D', scale: 'Major' }, // the cuatro's home key
+  Balalaika: { root: 'A', scale: 'Major' }, // prima EEA is A-centric
+  // Pedal steel
+  'E9 Nashville': { root: 'E', scale: 'Major' },
+  'E9 Lanois': { root: 'E', scale: 'Major' },
+  'C6 Swing/Jazz': { root: 'C', scale: 'Major' },
+  'B6 Universal': { root: 'B', scale: 'Major' },
+};
+// Mode necks: the name IS the key. Ionian/Aeolian map onto the app's
+// Major/Minor scale names.
+const MODE_SCALE = {
+  'White Keys': 'Major', 'C Ionian': 'Major', 'C Aeolian': 'Minor',
+  'C Lydian': 'Lydian', 'C Mixolydian': 'Mixolydian', 'C Dorian': 'Dorian',
+  'C Phrygian': 'Phrygian', 'C Locrian': 'Locrian',
+};
+
 // VG-800 name → curated id, so the overlapping entries are skipped and the
 // curated (correct-register) stack is what ships.
 const CURATED_BY_VG_NAME = {
@@ -194,13 +259,19 @@ const push = (t) => {
 const tipFor = (name) => D.TUNING_TIPS[name] ?? null;
 
 // Corrections applied to the VG-800 data. The VG-800 only needs a tuning's
-// pitch-class cluster, so a couple of entries are stored in a shape that is
-// wrong for a fretboard diagram.
+// pitch-class cluster (its shifter is bounded to ±12 from standard), so some
+// entries are stored in a shape that is wrong for a fretboard diagram.
 const MIDI_OVERRIDE = {
   // The VG-800 stores the cuatro's pitches sorted ascending (B3 D4 F♯4 A4),
   // which contradicts its own "A D F♯ B" spelling. The Venezuelan cuatro is
   // re-entrant: strings 4→1 are A4 D4 F♯4 B3, with the B an octave down.
   Cuatro: [69, 62, 66, 59],
+  // The real Emmons E9 is re-entrant: the chromatic strings 2 and 1 are
+  // D♯4 and F♯4, sitting BELOW string 3's G♯4 — not D♯5/F♯5 as the VG-800's
+  // bounded shifter had to place them. Strings 10→1:
+  // B2 D3 E3 F♯3 G♯3 B3 E4 G♯4 D♯4 F♯4.
+  'E9 Nashville': [47, 50, 52, 54, 56, 59, 64, 68, 63, 66],
+  'E9 Lanois': [47, 47, 52, 52, 56, 59, 64, 68, 63, 66],
 };
 
 for (const fam of D.FAMILIES) {
@@ -217,6 +288,7 @@ for (const fam of D.FAMILIES) {
       spellings,
       description: tip?.desc ?? t.comment ?? t.ref ?? undefined,
       song: tip?.song,
+      key: KEY_OVERRIDES[t.name],
       reentrant: isReentrant(midi) || undefined,
     });
   }
@@ -233,6 +305,7 @@ for (const t of D.MODES) {
     spellings: t.notes.split(/\s+/).map(prettify),
     description: tip?.desc,
     song: tip?.song,
+    key: { root: 'C', scale: MODE_SCALE[t.name] ?? 'Major' },
     reentrant: isReentrant(midi) || undefined,
   });
 }
@@ -248,22 +321,25 @@ for (const t of D.ETHNIC) {
     spellings: t.notes.split(/\s+/).map(prettify),
     description: tip?.desc ?? t.ref,
     song: tip?.song,
+    key: KEY_OVERRIDES[t.name],
     reentrant: isReentrant(midi) || undefined,
   });
 }
 
 for (const t of D.STEEL) {
   const tip = tipFor(t.name);
+  const midi = MIDI_OVERRIDE[t.name] ?? t.midi;
   push({
     id: 'ps-' + slug(t.name),
     name: t.name,
     group: 'pedal-steel',
-    midi: t.midi,
+    midi,
     spellings: t.spell.split(/\s+/).map(prettify),
     description: tip?.desc ?? t.sub,
     song: tip?.song,
+    key: KEY_OVERRIDES[t.name],
     copedent: t.copedent, // 'e9' | 'c6' — which pedal set this neck carries
-    reentrant: isReentrant(t.midi) || undefined,
+    reentrant: isReentrant(midi) || undefined,
   });
 }
 
@@ -278,6 +354,22 @@ for (const t of out) {
       problems.push(`${t.id}: string ${i} spelled ${s} but midi ${t.midi[i]} is ${SHARP[pcOf(t.midi[i])]}`);
   });
   if (t.midi.some((m) => m < 21 || m > 108)) problems.push(`${t.id}: midi out of piano range`);
+  if (t.key) {
+    if (nameToPc(t.key.root) === undefined || Number.isNaN(nameToPc(t.key.root)))
+      problems.push(`${t.id}: key root ${t.key.root} does not parse`);
+    if (!SCALE_NAMES.includes(t.key.scale))
+      problems.push(`${t.id}: key scale "${t.key.scale}" is not a known scale`);
+  }
+}
+// Every override must have been consumed — a stale name would silently drop a key.
+{
+  const names = new Set(out.map((t) => t.name));
+  for (const name of Object.keys(KEY_OVERRIDES)) {
+    if (!names.has(name)) problems.push(`KEY_OVERRIDES: no tuning named "${name}"`);
+  }
+  for (const name of Object.keys(MIDI_OVERRIDE)) {
+    if (!names.has(name)) problems.push(`MIDI_OVERRIDE: no tuning named "${name}"`);
+  }
 }
 if (problems.length) {
   console.error('VALIDATION FAILED:\n' + problems.map((p) => '  ' + p).join('\n'));
@@ -304,6 +396,7 @@ const lines = out.map((t) => {
   ];
   if (t.description) parts.push(`description:\n      ${esc(t.description)}`);
   if (t.song) parts.push(`song: ${esc(t.song)}`);
+  if (t.key) parts.push(`key: { root: ${esc(t.key.root)}, scale: ${esc(t.key.scale)} }`);
   if (t.copedent) parts.push(`copedent: ${esc(t.copedent)}`);
   if (t.reentrant) parts.push(`reentrant: true`);
   if (t.preferFlats) parts.push(`preferFlats: true`);
@@ -348,6 +441,11 @@ export interface Tuning {
   description?: string;
   /** A signature recording in this tuning. */
   song?: string;
+  /**
+   * The key this tuning implies, when the open-stack chord derivation
+   * (see keyFromTuning.ts) would get it wrong. Scale is a SCALE_INTERVALS name.
+   */
+  key?: { root: string; scale: string };
   /** Which pedal-steel copedent this neck carries (see copedents.ts). */
   copedent?: 'e9' | 'c6';
   /** Stack does not ascend — high-strung, re-entrant, or octave-doubled. */

@@ -15,8 +15,6 @@ describe('URL state', () => {
       barFret: 7,
       maxFret: 22,
       view: 'map',
-      keyRoot: 'E♭',
-      scale: 'Dorian',
       guide: 'scale',
       pulls: [0, 2, 0, -1, 0, 0],
       accidentals: 'flat',
@@ -47,15 +45,22 @@ describe('URL state', () => {
   });
 
   test('nonsense values are rejected, not trusted', () => {
-    const s = decodeState('#f=999&m=7&v=sideways&s=Klingon&g=maybe&a=neither&o=kazoo&c=x.y');
+    const s = decodeState('#f=999&m=7&v=sideways&g=maybe&a=neither&o=kazoo&c=x.y');
     expect(s.barFret).toBeLessThanOrEqual(s.maxFret);
     expect(s.maxFret).toBe(DEFAULT_STATE.maxFret);
     expect(s.view).toBe(DEFAULT_STATE.view);
-    expect(s.scale).toBe(DEFAULT_STATE.scale);
     expect(s.guide).toBe(DEFAULT_STATE.guide);
     expect(s.accidentals).toBe(DEFAULT_STATE.accidentals);
     expect(s.tone).toBe(DEFAULT_STATE.tone);
     expect(s.findRootPc).toBeNull();
+  });
+
+  test('pedal-era k=/s= key params are ignored, not fatal', () => {
+    // The key now derives from the tuning; old links carrying key/scale
+    // params must still decode cleanly.
+    const s = decodeState('#t=b11&f=3&k=E♭&s=Dorian');
+    expect(s.tuningId).toBe('b11');
+    expect(s.barFret).toBe(3);
   });
 
   test('pulls are clamped to the legal bend range', () => {
