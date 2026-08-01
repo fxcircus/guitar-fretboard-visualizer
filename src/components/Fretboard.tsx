@@ -203,6 +203,9 @@ const Cell = styled.div<{ $isOpen: boolean; $lineWidth: number }>`
     $isOpen ? `border-right: 3px solid ${theme.colors.textSecondary}55;` : ''}
 `;
 
+/** How long the bar takes to slide between frets; markers wait for it. */
+const SLIDE_MS = 160;
+
 // The bar — one metal slug for the whole board, so moving between frets is a
 // short SLIDE instead of a teleport.
 const BarSlug = styled.div`
@@ -220,7 +223,7 @@ const BarSlug = styled.div`
   );
   box-shadow: 0 0 9px ${({ theme }) => `${theme.colors.text}55`};
   opacity: 0.9;
-  transition: left 0.16s cubic-bezier(0.3, 0.9, 0.4, 1);
+  transition: left ${SLIDE_MS / 1000}s cubic-bezier(0.3, 0.9, 0.4, 1);
 
   @media (prefers-reduced-motion: reduce) {
     transition: none;
@@ -261,7 +264,13 @@ const markIn = keyframes`
 // color ($fill, see lib/noteColors.ts). The root additionally keeps its accent
 // ring, so it reads even for color-blind players; out-of-chord markers stay
 // hollow and dashed.
-const Mark = styled.button<{ $kind: MarkKind; $isPlaying: boolean; $fill?: string }>`
+const Mark = styled.button<{
+  $kind: MarkKind;
+  $isPlaying: boolean;
+  $fill?: string;
+  /** The bar is mid-slide: fade this (old-fret) marker out. */
+  $fading?: boolean;
+}>`
   position: relative;
   z-index: 2;
   border-radius: 50%;
@@ -314,10 +323,13 @@ const Mark = styled.button<{ $kind: MarkKind; $isPlaying: boolean; $fill?: strin
         ? 'none'
         : '0 2px 4px rgba(0, 0, 0, 0.3)'};
   transform: ${({ $isPlaying }) => ($isPlaying ? 'scale(1.18)' : 'scale(1)')};
+  opacity: ${({ $fading }) => ($fading ? 0 : 1)};
+  pointer-events: ${({ $fading }) => ($fading ? 'none' : 'auto')};
   transition:
     transform ${({ theme }) => theme.transitions.fast},
     box-shadow ${({ theme }) => theme.transitions.fast},
-    background ${({ theme }) => theme.transitions.fast};
+    background ${({ theme }) => theme.transitions.fast},
+    opacity 0.12s ease;
   animation: ${markIn} 0.14s ease;
 
   @media (prefers-reduced-motion: reduce) {
@@ -398,6 +410,21 @@ const Fretboard: React.FC<FretboardProps> = ({
   const stringCount = midi.length;
   const frets = Array.from({ length: maxFret + 1 }, (_, f) => f);
 
+  // Markers follow the bar, not the click: while the slug slides, the old
+  // fret's markers fade out in place; when it lands, they respawn (with the
+  // pop-in) at the new fret. `settledFret` is where markers currently live.
+  const [settledFret, setSettledFret] = useState(barFret);
+  const sliding = settledFret !== barFret;
+  useLayoutEffect(() => {
+    if (barFret === settledFret) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setSettledFret(barFret);
+      return;
+    }
+    const t = window.setTimeout(() => setSettledFret(barFret), SLIDE_MS);
+    return () => window.clearTimeout(t);
+  }, [barFret, settledFret]);
+
   // Measure the available width and size the fret columns to fill it, so the
   // board uses the space it has instead of leaving it empty. Re-measured on
   // resize and whenever the neck length changes.
@@ -473,7 +500,8 @@ const Fretboard: React.FC<FretboardProps> = ({
       };
     }
 
-    if (f !== barFret) return null;
+    // Markers live at the SETTLED fret — the bar catches up to barFret first.
+    if (f !== settledFret) return null;
 
     if (scaleActive) {
       const inScale = !!scalePcs?.has(pc);
@@ -596,6 +624,7 @@ const Fretboard: React.FC<FretboardProps> = ({
                           style={{ width: markSize, height: markSize }}
                           $kind={m.kind}
                           $fill={m.fill}
+                          $fading={view === 'bar' && sliding}
                           $isPlaying={playingStrings.has(s) && (view === 'map' ? f === barFret : true)}
                           onClick={(e) => {
                             e.stopPropagation();
