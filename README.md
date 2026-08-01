@@ -7,16 +7,19 @@ pedal steel, open, drop, artist and world instruments — and the board answers
 the questions a player actually asks:
 
 - **What chord am I sounding?** Lay the bar at a fret and read the name, the
-  formula, and the notes. Every chord hiding in an adjacent string group is
-  listed as a chip.
-- **Where do I play *this* chord?** Look one up and the bar snaps to the nearest
-  place that plays it, with the grip lit on the board. Other positions are one
-  click away; when no straight bar works, it previews the two-string **slants**
-  that do.
+  formula, and the notes.
+- **What chords can I play?** One card per chord this tuning can actually
+  voice: the key's diatonic degrees first (unplayable degrees are omitted, not
+  greyed), then every other available chord. Click a card and the bar snaps to
+  its fret with the grip lit. Chords the tuning cannot bar simply do not
+  appear.
 - **What key am I in?** The tuning *is* the key — C6 lives in C major, E13 in
-  E Mixolydian, a Lydian mode neck in C Lydian. The key, its diatonic chords,
-  and the **Map** view's scale all derive from the tuning you picked. There is
-  deliberately no key selector.
+  E Mixolydian, a Lydian mode neck in C Lydian. The key, the degree cards,
+  the note spelling (♯ vs ♭ follows the key signature), and the **Map** view's
+  scale all derive from the tuning you picked. There are deliberately no key,
+  accidental, or fret-count selectors — the board is always 12 frets, because
+  the first twelve hold every available chord (fret 12 just repeats fret 0 an
+  octave up).
 
 No install, no account, no assets to download. It is one static page; the sound
 is synthesised in the browser.
@@ -86,8 +89,8 @@ pedals exist.
 
 ## Sharing
 
-The whole board lives in the URL: tuning, bar position, looked-up chord, neck
-length, view. Hit **Share** and send the link; it opens exactly what you were
+The whole board lives in the URL: tuning, bar position, selected grip, view,
+tone. Hit **Share** and send the link; it opens exactly what you were
 looking at. Your last board is also remembered locally.
 
 ## Running it
@@ -135,6 +138,7 @@ src/lib/
   copedents.ts     pedal / knee-lever sets (parked, for the VG-800 merge)
   musicTheory.ts   note spelling, scales, diatonic chords
   audio.ts         Web Audio voices, with the bar scoop
+  chordCards.ts    the card surface: every playable chord, degrees first
   appState.ts      URL and localStorage round-tripping
 src/components/
   Fretboard.tsx    the board (bar view and map view)

@@ -3,7 +3,7 @@
  * from, and a hostile or stale hash must never produce a broken app.
  */
 import { describe, expect, test } from 'vitest';
-import { DEFAULT_STATE, decodeState, encodeState, type AppState } from './appState';
+import { DEFAULT_STATE, MAX_FRET, decodeState, encodeState, type AppState } from './appState';
 
 const roundTrip = (s: AppState) => decodeState(encodeState(s));
 
@@ -13,14 +13,10 @@ describe('URL state', () => {
       ...DEFAULT_STATE,
       tuningId: 'b11',
       barFret: 7,
-      maxFret: 22,
+      chip: 3,
       view: 'map',
-      guide: 'scale',
       pulls: [0, 2, 0, -1, 0, 0],
-      accidentals: 'flat',
-      tone: 'warm',
-      findRootPc: 9,
-      findSuffix: 'm7',
+      tone: 'sine',
     };
     expect(roundTrip(s)).toEqual(s);
   });
@@ -45,35 +41,34 @@ describe('URL state', () => {
   });
 
   test('nonsense values are rejected, not trusted', () => {
-    const s = decodeState('#f=999&m=7&v=sideways&g=maybe&a=neither&o=kazoo&c=x.y');
-    expect(s.barFret).toBeLessThanOrEqual(s.maxFret);
-    expect(s.maxFret).toBe(DEFAULT_STATE.maxFret);
+    const s = decodeState('#f=999&i=-4&v=sideways&o=kazoo');
+    expect(s.barFret).toBe(MAX_FRET); // clamped onto the 12-fret board
+    expect(s.chip).toBe(0);
     expect(s.view).toBe(DEFAULT_STATE.view);
-    expect(s.guide).toBe(DEFAULT_STATE.guide);
-    expect(s.accidentals).toBe(DEFAULT_STATE.accidentals);
     expect(s.tone).toBe(DEFAULT_STATE.tone);
-    expect(s.findRootPc).toBeNull();
   });
 
-  test('pedal-era k=/s= key params are ignored, not fatal', () => {
-    // The key now derives from the tuning; old links carrying key/scale
-    // params must still decode cleanly.
-    const s = decodeState('#t=b11&f=3&k=E♭&s=Dorian');
+  test('the bar can never sit past fret 12', () => {
+    expect(decodeState('#f=20').barFret).toBe(12);
+    expect(decodeState('#f=7').barFret).toBe(7);
+  });
+
+  test('legacy params from older links are ignored, not fatal', () => {
+    // k/s (key), m (fret count), a (accidentals), g (guide), c (find target)
+    // all derive from the tuning or are fixed now.
+    const s = decodeState('#t=b11&f=3&k=E♭&s=Dorian&m=22&a=flat&g=scale&c=9.m7&o=clean');
     expect(s.tuningId).toBe('b11');
     expect(s.barFret).toBe(3);
+    expect(s.tone).toBe(DEFAULT_STATE.tone); // 'clean' no longer exists
+    expect(s.view).toBe('bar');
   });
 
   test('pulls are clamped to the legal bend range', () => {
     expect(decodeState('#p=99.-99.1').pulls).toEqual([4, -4, 1]);
   });
 
-  test('the bar can never land past the end of the neck', () => {
-    expect(decodeState('#f=20&m=12').barFret).toBe(12);
-    expect(decodeState('#f=20&m=22').barFret).toBe(20);
-  });
-
   test('the encoding stays short for a default-ish board', () => {
     // Shared links get pasted into chat windows; keep them readable.
-    expect(encodeState(DEFAULT_STATE).length).toBeLessThan(40);
+    expect(encodeState(DEFAULT_STATE).length).toBeLessThan(30);
   });
 });

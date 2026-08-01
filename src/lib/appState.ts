@@ -4,50 +4,42 @@
  *
  * localStorage remembers the last board for a return visit; an explicit hash
  * always wins over it, so a shared link opens what the sender saw.
+ *
+ * Deliberately NOT here — these all derive from the tuning or are fixed:
+ *   · key/scale (the tuning IS the key — keyFromTuning.ts)
+ *   · accidentals (always auto: the key's own signature decides ♯ vs ♭)
+ *   · fret count (always 12 — the first twelve frets hold every chord)
  */
 import { CUSTOM_TUNING_ID, DEFAULT_TUNING_ID, getTuning } from './tunings';
 import { PULL_MAX, PULL_MIN } from './tuningState';
-import { CHORD_TYPES } from './chordEngine';
 import { TONE_NAMES, type ToneName } from './audio';
 
 export type NeckView = 'bar' | 'map';
-export type KeyGuide = 'chords' | 'scale' | 'off';
-export type Accidentals = 'auto' | 'sharp' | 'flat';
 
-// There is deliberately no key/scale here: the key is derived from the
-// selected tuning (see keyFromTuning.ts) — the tuning IS the key.
+/** The board always draws frets 0..12; positions only ever use 0..11. */
+export const MAX_FRET = 12;
+
 export interface AppState {
   tuningId: string;
   /** Only meaningful when tuningId === 'custom'. */
   customTuning: number[];
   barFret: number;
-  maxFret: number;
+  /** Selected grip: index into chordsAtFret at the bar (clamped in App). */
+  chip: number;
   view: NeckView;
-  guide: KeyGuide;
   /** Per-string semitone bends, low string first. */
   pulls: number[];
-  accidentals: Accidentals;
   tone: ToneName;
-  /** Chord finder: root pitch class, or null when nothing is being looked up. */
-  findRootPc: number | null;
-  /** Chord finder: a suffix from CHORD_TYPES. */
-  findSuffix: string;
 }
-
-export const FRET_COUNTS = [12, 15, 18, 22, 24];
 
 export const DEFAULT_STATE: AppState = {
   tuningId: DEFAULT_TUNING_ID,
   customTuning: [48, 52, 55, 57, 60, 64],
   barFret: 0,
-  maxFret: 12,
+  chip: 0,
   view: 'bar',
-  guide: 'chords',
   pulls: [],
-  accidentals: 'auto',
-  tone: 'clean',
-  findRootPc: null,
-  findSuffix: '',
+  tone: 'warm',
 };
 
 const STORAGE_KEY = 'gfv.state.v1';
@@ -62,13 +54,10 @@ export function encodeState(s: AppState): string {
   p.set('t', s.tuningId);
   if (s.tuningId === CUSTOM_TUNING_ID) p.set('u', s.customTuning.join('.'));
   p.set('f', String(s.barFret));
-  if (s.maxFret !== DEFAULT_STATE.maxFret) p.set('m', String(s.maxFret));
+  if (s.chip !== DEFAULT_STATE.chip) p.set('i', String(s.chip));
   if (s.view !== DEFAULT_STATE.view) p.set('v', s.view);
-  if (s.guide !== DEFAULT_STATE.guide) p.set('g', s.guide);
   if (s.pulls.some(Boolean)) p.set('p', s.pulls.join('.'));
-  if (s.accidentals !== DEFAULT_STATE.accidentals) p.set('a', s.accidentals);
   if (s.tone !== DEFAULT_STATE.tone) p.set('o', s.tone);
-  if (s.findRootPc !== null) p.set('c', `${s.findRootPc}.${s.findSuffix}`);
   return p.toString();
 }
 
@@ -86,19 +75,17 @@ export function decodeState(hash: string, base: AppState = DEFAULT_STATE): AppSt
   }
 
   const f = Number(p.get('f'));
-  if (Number.isFinite(f)) next.barFret = clampInt(f, 0, 24);
+  if (Number.isFinite(f)) next.barFret = clampInt(f, 0, MAX_FRET);
 
-  const m = Number(p.get('m'));
-  if (FRET_COUNTS.includes(m)) next.maxFret = m;
+  const i = Number(p.get('i'));
+  if (Number.isFinite(i)) next.chip = clampInt(i, 0, 40);
 
   const v = p.get('v');
   if (v === 'bar' || v === 'map') next.view = v;
 
-  // Older links carried k= (key root) and s= (scale); the key now derives from
-  // the tuning, so those params are simply ignored.
-
-  const g = p.get('g');
-  if (g === 'chords' || g === 'scale' || g === 'off') next.guide = g;
+  // Older links carried k=/s= (key), m= (fret count), a= (accidentals),
+  // g= (guide) and c= (find target); all of those are now derived or fixed,
+  // so the params are simply ignored.
 
   const pulls = p.get('p');
   if (pulls) {
@@ -108,25 +95,9 @@ export function decodeState(hash: string, base: AppState = DEFAULT_STATE): AppSt
       .map((n) => (Number.isFinite(n) ? clampInt(n, PULL_MIN, PULL_MAX) : 0));
   }
 
-  const a = p.get('a');
-  if (a === 'auto' || a === 'sharp' || a === 'flat') next.accidentals = a;
-
   const o = p.get('o');
   if (o && (TONE_NAMES as string[]).includes(o)) next.tone = o as ToneName;
 
-  const c = p.get('c');
-  if (c) {
-    const [rootStr, ...rest] = c.split('.');
-    const rootPc = Number(rootStr);
-    const suffix = rest.join('.');
-    if (Number.isFinite(rootPc) && CHORD_TYPES.some((ct) => ct.suffix === suffix)) {
-      next.findRootPc = ((rootPc % 12) + 12) % 12;
-      next.findSuffix = suffix;
-    }
-  }
-
-  // The bar can never sit past the end of the neck.
-  next.barFret = clampInt(next.barFret, 0, next.maxFret);
   return next;
 }
 
@@ -161,6 +132,10 @@ export function saveState(s: AppState): void {
   }
 }
 
+export function shareUrl(s: AppState): string {
+  return `${window.location.origin}${window.location.pathname}#${encodeState(s)}`;
+}
+
 /**
  * Re-read the hash when the user navigates to a different one — pressing Back,
  * or pasting a shared link into the tab that already has the app open. Without
@@ -170,8 +145,4 @@ export function watchHash(onChange: (s: AppState) => void): () => void {
   const handler = () => onChange(decodeState(window.location.hash));
   window.addEventListener('hashchange', handler);
   return () => window.removeEventListener('hashchange', handler);
-}
-
-export function shareUrl(s: AppState): string {
-  return `${window.location.origin}${window.location.pathname}#${encodeState(s)}`;
 }

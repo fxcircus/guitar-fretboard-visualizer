@@ -7,7 +7,7 @@
  * pitch, which is what makes an oscillator read as a steel rather than a beep.
  */
 
-export type ToneName = 'clean' | 'warm' | 'lofi' | 'sine';
+export type ToneName = 'warm' | 'sine';
 
 export interface Tone {
   label: string;
@@ -20,9 +20,7 @@ export interface Tone {
 }
 
 export const TONES: Record<ToneName, Tone> = {
-  clean: { label: 'Clean', osc: 'triangle', filterHz: 2800, filterQ: 1.5, scoop: 0.972 },
   warm: { label: 'Warm', osc: 'sawtooth', filterHz: 1500, filterQ: 1.2, scoop: 0.965 },
-  lofi: { label: 'Lo-fi', osc: 'square', filterHz: 2200, filterQ: 1, scoop: 0.972, detune: 1.002 },
   sine: { label: 'Pure', osc: 'sine', filterHz: 6000, filterQ: 0.5, scoop: 1 },
 };
 
@@ -42,7 +40,7 @@ export class FretboardAudio {
   private voices = new Map<string, Voice>();
   private timeouts: number[] = [];
 
-  tone: ToneName = 'clean';
+  tone: ToneName = 'warm';
   volume = 0.7;
 
   /** Called with the set of currently sounding string indices. */

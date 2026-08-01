@@ -7,22 +7,15 @@ import { Chip, Hint, IconBtn, Label, Mono, Panel, Row, Select, Toggle, ToggleBtn
 import { darkTheme, lightTheme } from './theme';
 
 import {
-  CHORD_TYPES,
   chordLabel,
-  chordPcs,
   chordsAtFret,
   displayNote,
   displayPitch,
-  findBarPositions,
-  findSlantPositions,
   identifyChords,
   midiPc,
-  rankByNearness,
-  rankSlantsByNearness,
   scanLabelsFor,
-  type BarPosition,
+  type ChordMatch,
   type ChordQuality,
-  type SlantPosition,
 } from './lib/chordEngine';
 import {
   CUSTOM_MIDI_MAX,
@@ -34,15 +27,11 @@ import {
 } from './lib/tunings';
 import { applyPulls, normalizePulls, resolveTuning } from './lib/tuningState';
 import { deriveKey } from './lib/keyFromTuning';
-import {
-  CHROMATIC_NOTES_FLATS,
-  CHROMATIC_NOTES_SHARPS,
-  deriveScaleChords,
-  noteToPitchClass,
-} from './lib/musicTheory';
+import { collectChordCards, type ChordCard } from './lib/chordCards';
+import { noteToPitchClass } from './lib/musicTheory';
 import { FretboardAudio, TONES, TONE_NAMES, type ToneName } from './lib/audio';
 import {
-  FRET_COUNTS,
+  MAX_FRET,
   loadState,
   saveState,
   shareUrl,
@@ -100,21 +89,6 @@ const HeaderActions = styled.div`
   gap: ${({ theme }) => theme.spacing.sm};
 `;
 
-const LinkBtn = styled.a`
-  padding: 5px 10px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: ${({ theme }) => theme.fontSizes.xs};
-  font-weight: 600;
-  text-decoration: none;
-
-  &:hover {
-    border-color: ${({ theme }) => theme.colors.primary};
-    color: ${({ theme }) => theme.colors.primary};
-  }
-`;
-
 const PlainBtn = styled.button`
   padding: 5px 10px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -131,25 +105,8 @@ const PlainBtn = styled.button`
   }
 `;
 
-const Readout = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing.md};
-  padding: ${({ theme }) => `${theme.spacing.sm} ${theme.spacing.md}`};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.medium};
-  background: ${({ theme }) => theme.colors.background};
-`;
-
-const ReadoutInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-`;
-
-const ChordName = styled.span<{ $quality: ChordQuality | null }>`
-  font-size: 26px;
+const ChordNameBig = styled.span<{ $quality: ChordQuality | null }>`
+  font-size: 24px;
   font-weight: 800;
   line-height: 1.1;
   color: ${({ $quality, theme }) => {
@@ -170,8 +127,8 @@ const StrumBtn = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   margin-left: auto;
   flex-shrink: 0;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -188,28 +145,27 @@ const StrumBtn = styled.button`
   }
 `;
 
-const StringBox = styled.div<{ $active?: boolean }>`
+const StringBox = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   padding: 4px 6px;
-  border: 1px solid ${({ $active, theme }) => ($active ? theme.colors.accent : theme.colors.border)};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.small};
-  background: ${({ $active, theme }) =>
-    $active ? `${theme.colors.accent}18` : theme.colors.inputBackground};
+  background: ${({ theme }) => theme.colors.inputBackground};
   min-width: 48px;
 `;
 
-const StringVal = styled.div<{ $active?: boolean }>`
+const StringVal = styled.div`
   font-size: ${({ theme }) => theme.fontSizes.sm};
   font-weight: 700;
-  color: ${({ $active, theme }) => ($active ? theme.colors.accent : theme.colors.text)};
+  color: ${({ theme }) => theme.colors.text};
   text-align: center;
   line-height: 1.15;
 `;
 
-const KeyChip = styled(Chip)`
+const Card = styled(Chip)`
   flex-direction: column;
   align-items: center;
   gap: 1px;
@@ -224,21 +180,25 @@ const Sub = styled.span`
 
 // Chord symbols are case-carrying (Am7 ≠ AM7), so they never go through the
 // uppercased `Label`.
-const TargetName = styled.span`
+const KeyName = styled.span`
   font-size: ${({ theme }) => theme.fontSizes.sm};
   font-weight: 800;
   color: ${({ theme }) => theme.colors.accent};
 `;
 
-const Banner = styled.div`
+const SoundingRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 8px 10px;
-  border: 1px solid ${({ theme }) => `${theme.colors.accent}66`};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  background: ${({ theme }) => `${theme.colors.accent}14`};
+  gap: ${({ theme }) => theme.spacing.md};
+  padding-top: ${({ theme }) => theme.spacing.sm};
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const SoundingInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 `;
 
 const Footer = styled.footer`
@@ -295,43 +255,35 @@ const App: React.FC = () => {
   // open-stack chord. Custom tunings re-derive live as strings are retuned.
   const tuningKey = useMemo(() => deriveKey(baseTuning), [baseTuning]);
 
+  // Accidentals are always automatic: the tuning's own lean wins, else the
+  // key's spelled scale decides (C minor reads in flats, B minor in sharps).
   const flats =
-    state.accidentals === 'flat'
-      ? true
-      : state.accidentals === 'sharp'
-        ? false
-        : (baseTuning.preferFlats ??
-          // fall back to the key's own spelling lean (C minor reads in flats)
-          tuningKey.notes.filter((n) => n.includes('♭')).length >
-            tuningKey.notes.filter((n) => n.includes('♯')).length);
-
-  const noteNames = flats ? CHROMATIC_NOTES_FLATS : CHROMATIC_NOTES_SHARPS;
-
-  // Keep the bar on the neck when the neck gets shorter.
-  useEffect(() => {
-    if (state.barFret > state.maxFret) patch({ barFret: state.maxFret });
-  }, [state.barFret, state.maxFret, patch]);
+    baseTuning.preferFlats ??
+    tuningKey.notes.filter((n) => n.includes('♭')).length >
+      tuningKey.notes.filter((n) => n.includes('♯')).length;
 
   const chords = useMemo(
     () => chordsAtFret(tuning.midi, state.barFret),
     [tuning, state.barFret]
   );
 
-  // Which chord-group chip is selected. The group structure is identical at
-  // every fret (a straight bar transposes everything uniformly), so the
-  // selection survives bar moves. It resets only when the BASE tuning's pitch
-  // content changes — NOT on a pull nudge, so you can dial in a bend while
-  // watching its effect on the selected chord.
-  const [selectedChipIdx, setSelectedChipIdx] = useState(0);
+  // The selected grip (chip) lives in the URL state so a shared board lights
+  // the same chord. It resets when the BASE tuning's pitch content changes —
+  // guarded so a shared link's chip survives the first render.
   const baseSignature = baseTuning.midi.join(',');
-  useEffect(() => setSelectedChipIdx(0), [baseSignature]);
+  const sigRef = useRef(baseSignature);
+  useEffect(() => {
+    if (sigRef.current === baseSignature) return;
+    sigRef.current = baseSignature;
+    patch({ chip: 0 });
+  }, [baseSignature, patch]);
 
-  const selected = chords.length ? chords[Math.min(selectedChipIdx, chords.length - 1)] : null;
+  const selected = chords.length ? chords[Math.min(state.chip, chords.length - 1)] : null;
   const rootPc = selected ? selected.match.rootPc : null;
 
   const scanLabels = useMemo(
-    () => scanLabelsFor(selected ? selected.match : null, state.barFret, state.maxFret, flats),
-    [selected, state.barFret, state.maxFret, flats]
+    () => scanLabelsFor(selected ? selected.match : null, state.barFret, MAX_FRET, flats),
+    [selected, state.barFret, flats]
   );
   const activeStringIdxs = useMemo(
     () => (selected ? selected.strings : tuning.midi.map((_, i) => i)),
@@ -363,132 +315,42 @@ const App: React.FC = () => {
     return { core, pcs, keyRootPc, degreeLabels };
   }, [tuningKey]);
 
-  const keyChords = useMemo(() => {
-    // Diatonic triads are only well-defined for 7-note scales, where each
-    // degree's index-stack is a real tertian triad rooted on tonePcs[0].
-    if (state.guide !== 'chords' || scaleInfo.core.length < 7) return [];
-    return deriveScaleChords(scaleInfo.core).map((deg) => {
-      const voicable =
-        deg.triadName !== null &&
-        deg.quality !== null &&
-        deg.quality !== 'slash' &&
-        new Set(deg.tonePcs).size === 3;
-      const nearest = voicable
-        ? (rankByNearness(
-            findBarPositions(tuning.midi, deg.tonePcs, deg.tonePcs[0], state.maxFret),
-            state.barFret
-          )[0] ?? null)
-        : null;
-      return { deg, nearest };
-    });
-  }, [state.guide, scaleInfo.core, tuning, state.barFret, state.maxFret]);
-
-  // ── Chord finder ─────────────────────────────────────────────────────────
-  const findType = CHORD_TYPES.find((t) => t.suffix === state.findSuffix) ?? CHORD_TYPES[0];
-  const target = useMemo(() => {
-    if (state.findRootPc === null) return null;
-    return { pcs: chordPcs(state.findRootPc, findType), rootPc: state.findRootPc };
-  }, [state.findRootPc, findType]);
-
-  const targetName = target ? displayNote(target.rootPc, flats) + findType.suffix : null;
-
-  const targetPositions = useMemo(() => {
-    if (!target) return [];
-    return rankByNearness(
-      findBarPositions(tuning.midi, target.pcs, target.rootPc, state.maxFret),
-      state.barFret
-    );
-  }, [target, tuning, state.barFret, state.maxFret]);
-  const targetFrets = useMemo(
-    () => new Set(targetPositions.map((p) => p.fret)),
-    [targetPositions]
+  // ── The chord cards: every chord this tuning can play, one card each ────
+  const cards = useMemo(
+    () => collectChordCards(tuning.midi, tuningKey.notes, tuningKey.rootPc),
+    [tuning, tuningKey]
   );
 
-  // When a straight bar can't play it, offer slants (2-string tilts).
-  const targetSlants = useMemo(() => {
-    if (!target || targetPositions.length > 0) return [];
-    const ranked = rankSlantsByNearness(
-      findSlantPositions(tuning.midi, target.pcs, target.rootPc, state.maxFret, flats),
-      state.barFret
-    );
-    const seen = new Set<string>();
-    return ranked.filter((s) => {
-      const key = `${s.notes[0]}:${s.notes[1]}:${s.lowFret}:${s.highFret}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [target, targetPositions, tuning, state.barFret, state.maxFret, flats]);
-
-  // The previewed slant is tracked by a stable key (not object identity — the
-  // slant list is recomputed on every bar move) and derived back to the live
-  // object. Cleared on target change and on any non-slant bar move.
-  const slantKey = (s: SlantPosition) =>
-    `${s.lowString}-${s.highString}-${s.lowFret}-${s.highFret}`;
-  const [slantPreviewKey, setSlantPreviewKey] = useState<string | null>(null);
-  useEffect(() => setSlantPreviewKey(null), [target]);
-  const slantPreview = useMemo(
-    () => targetSlants.find((s) => slantKey(s) === slantPreviewKey) ?? null,
-    [targetSlants, slantPreviewKey]
-  );
-
-  const setBarFret = useCallback(
-    (f: number) => {
-      setSlantPreviewKey(null);
-      patch({ barFret: f });
-    },
-    [patch]
-  );
-
-  // Snap the bar to a found position AND make the board display that chord:
-  // pick the chip whose string group is the position's grip, else a same-name
-  // chip, else the chip sounding the same pitch-class set (chordsAtFret may
-  // have named the identical notes from a different root — e.g. a Cm7 grip
-  // deduped under its D♯6 alias; the readout's alias line then shows "= Cm7").
-  const snapToPosition = useCallback(
-    (p: BarPosition) => {
-      setSlantPreviewKey(null);
-      const there = chordsAtFret(tuning.midi, p.fret);
+  // Snap the bar to a card's fret AND light that grip: pick the chip whose
+  // string group is the card's grip, else a same-name chip, else the chip
+  // sounding the same pitch-class set (chordsAtFret may have named the
+  // identical notes from a different root — the alias line then explains).
+  const snapToCard = useCallback(
+    (card: Pick<ChordCard, 'fret' | 'strings' | 'match'>) => {
+      const there = chordsAtFret(tuning.midi, card.fret);
       let idx = there.findIndex(
-        (c) => c.strings.length === p.strings.length && c.strings[0] === p.strings[0]
+        (c) => c.strings.length === card.strings.length && c.strings[0] === card.strings[0]
       );
       if (idx < 0) {
         idx = there.findIndex(
-          (c) => c.match.rootPc === p.match.rootPc && c.match.suffix === p.match.suffix
+          (c) => c.match.rootPc === card.match.rootPc && c.match.suffix === card.match.suffix
         );
       }
       if (idx < 0) {
-        const posPcs = new Set(p.strings.map((s) => midiPc(tuning.midi[s] + p.fret)));
+        const cardPcs = new Set(card.strings.map((s) => midiPc(tuning.midi[s] + card.fret)));
         idx = there.findIndex((c) => {
-          const cPcs = new Set(c.strings.map((s) => midiPc(tuning.midi[s] + p.fret)));
-          return cPcs.size === posPcs.size && [...posPcs].every((pc) => cPcs.has(pc));
+          const cPcs = new Set(c.strings.map((s) => midiPc(tuning.midi[s] + card.fret)));
+          return cPcs.size === cardPcs.size && [...cardPcs].every((pc) => cPcs.has(pc));
         });
       }
-      if (idx >= 0) setSelectedChipIdx(idx);
-      patch({ barFret: p.fret });
+      patch(idx >= 0 ? { barFret: card.fret, chip: idx } : { barFret: card.fret });
     },
     [tuning, patch]
   );
 
-  // Looking a chord up drives the board: the bar snaps to the nearest place
-  // that plays it (or previews the nearest slant when no straight bar can).
-  // Keyed on the target's identity so it fires once per lookup, not on every
-  // bar move — and not on mount, so a shared link's bar position is honoured.
-  const targetIdentity = target ? `${target.rootPc}:${state.findSuffix}` : null;
-  const lastSnappedRef = useRef<string | null>(targetIdentity);
-  useEffect(() => {
-    if (targetIdentity === lastSnappedRef.current) return;
-    lastSnappedRef.current = targetIdentity;
-    if (!targetIdentity) return;
-    if (targetPositions.length > 0) {
-      snapToPosition(targetPositions[0]);
-    } else if (targetSlants.length > 0) {
-      const s = targetSlants[0];
-      setSlantPreviewKey(slantKey(s));
-      patch({ barFret: Math.min(s.lowFret, s.highFret) });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetIdentity]);
+  // A card is "the one sounding" when it names the currently selected grip.
+  const activeCardKey = selected ? `${selected.match.rootPc}:${selected.match.suffix}` : null;
+  const cardKey = (m: ChordMatch) => `${m.rootPc}:${m.suffix}`;
 
   // The 6th/m7-style alias of the selected group ("C6 = Am7")
   const alias = useMemo(() => {
@@ -546,9 +408,9 @@ const App: React.FC = () => {
   // state still applies, so pedal-era share links keep sounding right.)
   const handleTuningChange = (id: string) => {
     if (id === CUSTOM_TUNING_ID) {
-      patch({ tuningId: id, customTuning: [...baseTuning.midi], pulls: [] });
+      patch({ tuningId: id, customTuning: [...baseTuning.midi], pulls: [], chip: 0 });
     } else {
-      patch({ tuningId: id, pulls: [] });
+      patch({ tuningId: id, pulls: [], chip: 0 });
     }
   };
 
@@ -579,12 +441,25 @@ const App: React.FC = () => {
     }
   };
 
-  const rootOptions = useMemo(
-    () => noteNames.map((n, pc) => ({ name: n, pc })),
-    [noteNames]
-  );
+  const setBarFret = useCallback((f: number) => patch({ barFret: f }), [patch]);
 
   const theme = themeName === 'dark' ? darkTheme : lightTheme;
+
+  const renderCard = (card: ChordCard) => (
+    <Card
+      key={`${card.roman ?? ''}${cardKey(card.match)}`}
+      $active={activeCardKey === cardKey(card.match)}
+      aria-pressed={activeCardKey === cardKey(card.match)}
+      onClick={() => snapToCard(card)}
+      title={`${chordLabel(card.match, flats)} — bar at fret ${card.fret}, strings ${
+        stringCount - card.strings[0]
+      }–${stringCount - card.strings[card.strings.length - 1]}`}
+    >
+      {card.roman && <Sub>{card.roman}</Sub>}
+      {chordLabel(card.match, flats)}
+      <Sub>fret {card.fret}</Sub>
+    </Card>
+  );
 
   return (
     <ThemeProvider theme={theme}>
@@ -605,9 +480,6 @@ const App: React.FC = () => {
             >
               {themeName === 'dark' ? 'Light' : 'Dark'}
             </PlainBtn>
-            <LinkBtn href={REPO_URL} target="_blank" rel="noreferrer">
-              GitHub
-            </LinkBtn>
           </HeaderActions>
         </Header>
 
@@ -637,30 +509,6 @@ const App: React.FC = () => {
                 Map
               </ToggleBtn>
             </Toggle>
-
-            <Select
-              value={state.maxFret}
-              onChange={(e) => patch({ maxFret: Number(e.target.value) })}
-              aria-label="Fret count"
-              title="How many frets to draw"
-            >
-              {FRET_COUNTS.map((n) => (
-                <option key={n} value={n}>
-                  {n} frets
-                </option>
-              ))}
-            </Select>
-
-            <Select
-              value={state.accidentals}
-              onChange={(e) => patch({ accidentals: e.target.value as AppState['accidentals'] })}
-              aria-label="Accidentals"
-              title="How to spell the black keys"
-            >
-              <option value="auto">Auto ♯/♭</option>
-              <option value="sharp">Sharps</option>
-              <option value="flat">Flats</option>
-            </Select>
 
             <Select
               value={state.tone}
@@ -718,188 +566,63 @@ const App: React.FC = () => {
               </Chip>
             </Row>
           )}
-        </Panel>
 
-        <Panel>
           <Row>
             <Label>Key</Label>
-            <TargetName>
+            <KeyName>
               {tuningKey.root} {tuningKey.scale}
-            </TargetName>
-            <Hint>
-              {tuningKey.source === 'chord'
-                ? 'from the open-string chord'
-                : tuningKey.source === 'fallback'
-                  ? 'rooted on the lowest string'
-                  : 'the tuning’s home key'}{' '}
-              — pick a different tuning to change it
-            </Hint>
-            <Toggle role="group" aria-label="Key guide">
-              {(['chords', 'scale', 'off'] as const).map((mode) => (
-                <ToggleBtn
-                  key={mode}
-                  $active={state.guide === mode}
-                  aria-pressed={state.guide === mode}
-                  onClick={() => patch({ guide: mode })}
-                  title={
-                    mode === 'chords'
-                      ? "The key's diatonic chords and where the bar plays each"
-                      : mode === 'scale'
-                        ? 'Show every scale tone (melody map)'
-                        : 'Hide the key guide'
-                  }
-                >
-                  {mode === 'chords' ? 'Chords' : mode === 'scale' ? 'Scale' : 'Off'}
-                </ToggleBtn>
-              ))}
-            </Toggle>
+            </KeyName>
             <Mono>{scaleInfo.core.join(' ')}</Mono>
+            <Hint>from the tuning — pick a different tuning to change it</Hint>
           </Row>
 
-          {state.guide === 'chords' && keyChords.length > 0 && (
-            <Row role="group" aria-label={`Diatonic chords in ${tuningKey.root} ${tuningKey.scale}`}>
-              {keyChords.map(({ deg, nearest }, i) => (
-                <KeyChip
-                  key={i}
-                  $disabled={!nearest}
-                  disabled={!nearest}
-                  onClick={() => nearest && snapToPosition(nearest)}
-                  title={
-                    nearest
-                      ? `${deg.triadName ?? deg.roman} — bar at fret ${nearest.fret}${
-                          nearest.isFullTarget ? '' : ' (triad grip)'
-                        }`
-                      : `${deg.triadName ?? deg.roman} — not under a straight bar in this tuning`
-                  }
-                >
-                  <Sub>{deg.roman}</Sub>
-                  {deg.triadName ?? '—'}
-                  <Sub>{nearest ? `fret ${nearest.fret}` : '—'}</Sub>
-                </KeyChip>
-              ))}
+          {(cards.degrees.length > 0 || cards.others.length > 0) && (
+            <Row
+              role="group"
+              aria-label={`Chords this tuning can play, in ${tuningKey.root} ${tuningKey.scale}`}
+            >
+              {cards.degrees.map(renderCard)}
+              {cards.others.map(renderCard)}
             </Row>
           )}
-
-          <Row>
-            <Label>Find a chord</Label>
-            <Select
-              value={state.findRootPc ?? ''}
-              onChange={(e) =>
-                patch({
-                  findRootPc: e.target.value === '' ? null : Number(e.target.value),
-                  findSuffix: state.findSuffix,
-                })
-              }
-              aria-label="Chord root"
-            >
-              <option value="">— none —</option>
-              {rootOptions.map((r) => (
-                <option key={r.pc} value={r.pc}>
-                  {r.name}
-                </option>
-              ))}
-            </Select>
-            <Select
-              value={state.findSuffix}
-              onChange={(e) => patch({ findSuffix: e.target.value })}
-              aria-label="Chord type"
-            >
-              {CHORD_TYPES.map((t) => (
-                <option key={t.suffix} value={t.suffix}>
-                  {t.suffix === '' ? 'major' : t.suffix} — {t.name}
-                </option>
-              ))}
-            </Select>
-            <Hint>where this tuning can play it under the bar</Hint>
-          </Row>
-
-          {target && (
-            <Banner role="status">
-              <TargetName>{targetName}</TargetName>
-              {targetPositions.length > 0 ? (
-                <>
-                  <Hint>bar at</Hint>
-                  {targetPositions.slice(0, 8).map((p) => (
-                    <Chip
-                      key={p.fret}
-                      $active={p.fret === state.barFret}
-                      onClick={() => snapToPosition(p)}
-                      title={`Snap the bar to fret ${p.fret} (${chordLabel(p.match, flats)}${
-                        p.isFullTarget ? '' : ', partial'
-                      }) — strings ${stringCount - p.strings[0]}–${
-                        stringCount - p.strings[p.strings.length - 1]
-                      }`}
-                    >
-                      fret {p.fret}
-                      {!p.isFullTarget ? '*' : ''}
-                    </Chip>
-                  ))}
-                  {targetPositions.some((p) => !p.isFullTarget) && (
-                    <Hint>* a triad grip of the full chord</Hint>
-                  )}
-                </>
-              ) : targetSlants.length > 0 ? (
-                <>
-                  <Hint>no straight bar — slant</Hint>
-                  {targetSlants.slice(0, 6).map((s) => (
-                    <Chip
-                      key={slantKey(s)}
-                      $active={slantPreviewKey === slantKey(s)}
-                      onClick={() => {
-                        setSlantPreviewKey(slantKey(s));
-                        patch({ barFret: Math.min(s.lowFret, s.highFret) });
-                      }}
-                      title={`${s.direction} slant, strings ${stringCount - s.lowString}+${
-                        stringCount - s.highString
-                      } at frets ${s.lowFret}/${s.highFret}`}
-                    >
-                      {s.label} ({s.lowFret}/{s.highFret})
-                    </Chip>
-                  ))}
-                </>
-              ) : (
-                <Hint>not playable under a straight bar or a simple slant in this tuning</Hint>
-              )}
-            </Banner>
-          )}
-        </Panel>
-
-        <Readout>
-          <ReadoutInfo>
-            <Label>
-              {state.view === 'map'
-                ? `${tuningKey.root} ${tuningKey.scale} across the neck`
-                : `Sounding chord — ${state.barFret === 0 ? 'open strings' : `bar at fret ${state.barFret}`}`}
-            </Label>
-            <ChordName $quality={selected ? selected.match.quality : null}>
-              {selected ? chordLabel(selected.match, flats) : soundingNotes || '—'}
-            </ChordName>
+          {cards.degrees.length === 0 && cards.others.length === 0 && (
             <Hint>
-              {alias ? `= ${alias} · ` : ''}
-              {selected ? (
-                `${selected.match.formulaName} · ${soundingNotes}`
-              ) : (
-                <>
-                  No chord name — these strings do not stack into one. Some tunings (the modal
-                  necks, the drone tunings) are scale ladders rather than chords;{' '}
-                  <strong>Map</strong> view is what they are for.
-                </>
-              )}
+              This tuning stacks no nameable chord — it is a scale ladder or a drone.{' '}
+              <strong>Map</strong> view shows what it is for.
             </Hint>
-          </ReadoutInfo>
-          <StrumBtn
-            onClick={() => strum(activeStringIdxs)}
-            title="Strum the highlighted strings"
-            aria-label="Strum the highlighted strings"
-          >
-            ▶
-          </StrumBtn>
-        </Readout>
+          )}
+
+          <SoundingRow>
+            <SoundingInfo>
+              <Label>
+                {state.view === 'map'
+                  ? `${tuningKey.root} ${tuningKey.scale} across the neck`
+                  : `Sounding — ${state.barFret === 0 ? 'open strings' : `bar at fret ${state.barFret}`}`}
+              </Label>
+              <ChordNameBig $quality={selected ? selected.match.quality : null}>
+                {selected ? chordLabel(selected.match, flats) : soundingNotes || '—'}
+              </ChordNameBig>
+              <Hint>
+                {alias ? `= ${alias} · ` : ''}
+                {selected
+                  ? `${selected.match.formulaName} · ${soundingNotes}`
+                  : 'no chord name for these strings'}
+              </Hint>
+            </SoundingInfo>
+            <StrumBtn
+              onClick={() => strum(activeStringIdxs)}
+              title="Strum the highlighted strings"
+              aria-label="Strum the highlighted strings"
+            >
+              ▶
+            </StrumBtn>
+          </SoundingRow>
+        </Panel>
 
         <Fretboard
           midi={tuning.midi}
           spellings={tuning.spellings}
-          maxFret={state.maxFret}
+          maxFret={MAX_FRET}
           barFret={state.barFret}
           onBarFretChange={setBarFret}
           view={state.view}
@@ -909,9 +632,6 @@ const App: React.FC = () => {
           playingStrings={playingStrings}
           onNoteClick={handleNoteClick}
           scanLabels={scanLabels}
-          targetFrets={targetFrets}
-          slant={slantPreview}
-          scaleActive={state.guide === 'scale'}
           scalePcs={scaleInfo.pcs}
           keyRootPc={scaleInfo.keyRootPc}
           scaleDegreeLabels={scaleInfo.degreeLabels}
@@ -919,35 +639,6 @@ const App: React.FC = () => {
           baseSpellings={baseTuning.spellings}
           flats={flats}
         />
-
-        {state.view === 'bar' && chords.length > 0 && (
-          <Row role="group" aria-label="Chords at this bar position">
-            {chords.map((c, i) => (
-              <Chip
-                key={`${c.match.rootPc}:${c.match.suffix}`}
-                $active={i === Math.min(selectedChipIdx, chords.length - 1)}
-                aria-pressed={i === Math.min(selectedChipIdx, chords.length - 1)}
-                onClick={() => setSelectedChipIdx(i)}
-                title={`${chordLabel(c.match, flats)} — ${
-                  c.isFullStack
-                    ? 'all strings'
-                    : `strings ${stringCount - c.strings[0]}–${
-                        stringCount - c.strings[c.strings.length - 1]
-                      }`
-                }`}
-              >
-                {chordLabel(c.match, flats)}
-                <Sub>
-                  {c.isFullStack
-                    ? 'all'
-                    : `str ${stringCount - c.strings[0]}–${
-                        stringCount - c.strings[c.strings.length - 1]
-                      }`}
-                </Sub>
-              </Chip>
-            ))}
-          </Row>
-        )}
 
         <Footer>
           <p>
