@@ -16,7 +16,7 @@ describe('URL state', () => {
       chip: 3,
       view: 'map',
       pulls: [0, 2, 0, -1, 0, 0],
-      tone: 'sine',
+      tone: 'saw', // the non-default voice, so the o= param is exercised
     };
     expect(roundTrip(s)).toEqual(s);
   });

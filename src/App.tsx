@@ -3,7 +3,7 @@ import styled, { ThemeProvider, createGlobalStyle } from 'styled-components';
 
 import Fretboard from './components/Fretboard';
 import TuningPicker from './components/TuningPicker';
-import { Chip, Hint, IconBtn, Label, Mono, Panel, Row, Select, Toggle, ToggleBtn } from './components/ui';
+import { Chip, Hint, IconBtn, Label, Mono, Panel, Row, Toggle, ToggleBtn } from './components/ui';
 import { darkTheme, lightTheme } from './theme';
 
 import {
@@ -23,7 +23,6 @@ import {
   CUSTOM_TUNING_ID,
   MAX_STRINGS,
   MIN_STRINGS,
-  TUNINGS,
 } from './lib/tunings';
 import { applyPulls, normalizePulls, resolveTuning } from './lib/tuningState';
 import { deriveKey } from './lib/keyFromTuning';
@@ -34,13 +33,32 @@ import {
   MAX_FRET,
   loadState,
   saveState,
-  shareUrl,
   watchHash,
   type AppState,
 } from './lib/appState';
 
-const REPO_URL = 'https://github.com/fxcircus/guitar-fretboard-visualizer';
 const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+
+// ── Header icons (inline so the bundle stays dependency-free) ──────────────
+const SunIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+  </svg>
+);
+
+const MoonIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+  </svg>
+);
+
+const SpeakerIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M11 5 6 9H2v6h4l5 4V5z" />
+    <path d="M15.5 8.5a5 5 0 0 1 0 7M18.4 5.6a9 9 0 0 1 0 12.8" />
+  </svg>
+);
 
 const GlobalStyle = createGlobalStyle`
   *, *::before, *::after { box-sizing: border-box; }
@@ -77,11 +95,6 @@ const Title = styled.h1`
   letter-spacing: -0.01em;
 `;
 
-const Tagline = styled.span`
-  font-size: ${({ theme }) => theme.fontSizes.xs};
-  color: ${({ theme }) => theme.colors.textSecondary};
-`;
-
 const HeaderActions = styled.div`
   margin-left: auto;
   display: flex;
@@ -89,20 +102,48 @@ const HeaderActions = styled.div`
   gap: ${({ theme }) => theme.spacing.sm};
 `;
 
-const PlainBtn = styled.button`
-  padding: 5px 10px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
+const HeadBtn = styled.button<{ $open?: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid ${({ $open, theme }) => ($open ? theme.colors.primary : theme.colors.border)};
   border-radius: ${({ theme }) => theme.borderRadius.small};
   background: transparent;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: ${({ theme }) => theme.fontSizes.xs};
-  font-weight: 600;
+  color: ${({ $open, theme }) => ($open ? theme.colors.primary : theme.colors.textSecondary)};
   cursor: pointer;
 
   &:hover {
     border-color: ${({ theme }) => theme.colors.primary};
     color: ${({ theme }) => theme.colors.primary};
   }
+`;
+
+const SoundWrap = styled.div`
+  position: relative;
+`;
+
+const SoundPop = styled.div`
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+  padding: 12px;
+  background: ${({ theme }) => theme.colors.card};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.medium};
+  box-shadow: ${({ theme }) => theme.shadows.large};
+`;
+
+const VolumeSlider = styled.input`
+  width: 100%;
+  accent-color: ${({ theme }) => theme.colors.primary};
+  cursor: pointer;
 `;
 
 const ChordNameBig = styled.span<{ $quality: ChordQuality | null }>`
@@ -201,17 +242,6 @@ const SoundingInfo = styled.div`
   min-width: 0;
 `;
 
-const Footer = styled.footer`
-  padding: ${({ theme }) => theme.spacing.md} 0;
-  font-size: ${({ theme }) => theme.fontSizes.xs};
-  color: ${({ theme }) => theme.colors.textSecondary};
-  line-height: 1.6;
-
-  a {
-    color: ${({ theme }) => theme.colors.primary};
-  }
-`;
-
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>(() => loadState());
   const [themeName, setThemeName] = useState<'dark' | 'light'>(() => {
@@ -223,7 +253,21 @@ const App: React.FC = () => {
     }
     return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   });
-  const [copied, setCopied] = useState(false);
+
+  // Volume is a device preference, not part of the shareable board — it lives
+  // in localStorage, not the URL.
+  const [volume, setVolume] = useState(() => {
+    try {
+      const v = Number(localStorage.getItem('gfv.volume'));
+      if (Number.isFinite(v) && v >= 0 && v <= 1 && localStorage.getItem('gfv.volume') !== null)
+        return v;
+    } catch {
+      /* ignore */
+    }
+    return 0.7;
+  });
+  const [soundOpen, setSoundOpen] = useState(false);
+  const soundWrapRef = useRef<HTMLDivElement>(null);
 
   const patch = useCallback((updates: Partial<AppState>) => {
     setState((prev) => ({ ...prev, ...updates }));
@@ -238,6 +282,30 @@ const App: React.FC = () => {
       /* ignore */
     }
   }, [themeName]);
+  useEffect(() => {
+    try {
+      localStorage.setItem('gfv.volume', String(volume));
+    } catch {
+      /* ignore */
+    }
+  }, [volume]);
+
+  // Close the sound popover on outside click or Escape.
+  useEffect(() => {
+    if (!soundOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!soundWrapRef.current?.contains(e.target as Node)) setSoundOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSoundOpen(false);
+    };
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [soundOpen]);
 
   // ── Tuning ───────────────────────────────────────────────────────────────
   const baseTuning = useMemo(
@@ -380,7 +448,24 @@ const App: React.FC = () => {
   }
   const audio = audioRef.current;
   audio.tone = state.tone;
+  audio.volume = volume;
   useEffect(() => () => audioRef.current?.dispose(), []);
+
+  // Dragging the volume slider plays a C so the level is heard, not guessed —
+  // throttled so a fast drag doesn't machine-gun.
+  const lastBeepRef = useRef(0);
+  const handleVolume = useCallback(
+    (v: number) => {
+      setVolume(v);
+      audio.volume = v;
+      const now = performance.now();
+      if (now - lastBeepRef.current > 180) {
+        lastBeepRef.current = now;
+        void audio.pluck(60); // middle C
+      }
+    },
+    [audio]
+  );
   // Silence anything ringing when the board changes underneath it.
   useEffect(() => {
     audioRef.current?.stopAll();
@@ -431,16 +516,6 @@ const App: React.FC = () => {
     patch({ customTuning: baseTuning.midi.slice(0, -1), pulls: [] });
   };
 
-  const copyShare = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl(state));
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      /* clipboard blocked — the URL bar already holds the same link */
-    }
-  };
-
   const setBarFret = useCallback((f: number) => patch({ barFret: f }), [patch]);
 
   const theme = themeName === 'dark' ? darkTheme : lightTheme;
@@ -467,19 +542,53 @@ const App: React.FC = () => {
       <Shell>
         <Header>
           <Title>Fretboard Visualizer</Title>
-          <Tagline>
-            {TUNINGS.length} tunings · slide the bar, read the chord
-          </Tagline>
           <HeaderActions>
-            <PlainBtn onClick={copyShare} title="Copy a link to exactly this board">
-              {copied ? 'Copied ✓' : 'Share'}
-            </PlainBtn>
-            <PlainBtn
+            <SoundWrap ref={soundWrapRef}>
+              <HeadBtn
+                $open={soundOpen}
+                onClick={() => setSoundOpen((o) => !o)}
+                aria-label="Sound"
+                aria-haspopup="dialog"
+                aria-expanded={soundOpen}
+                title="Sound"
+              >
+                <SpeakerIcon />
+              </HeadBtn>
+              {soundOpen && (
+                <SoundPop role="dialog" aria-label="Sound settings">
+                  <Label>Tone</Label>
+                  <Row role="group" aria-label="Synth voice">
+                    {TONE_NAMES.map((t) => (
+                      <Chip
+                        key={t}
+                        $active={state.tone === t}
+                        aria-pressed={state.tone === t}
+                        onClick={() => patch({ tone: t as ToneName })}
+                      >
+                        {TONES[t].label}
+                      </Chip>
+                    ))}
+                  </Row>
+                  <Label>Volume</Label>
+                  <VolumeSlider
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={volume}
+                    aria-label="Volume"
+                    onChange={(e) => handleVolume(Number(e.target.value))}
+                  />
+                </SoundPop>
+              )}
+            </SoundWrap>
+            <HeadBtn
               onClick={() => setThemeName((t) => (t === 'dark' ? 'light' : 'dark'))}
-              title="Switch theme"
+              aria-label={themeName === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={themeName === 'dark' ? 'Light theme' : 'Dark theme'}
             >
-              {themeName === 'dark' ? 'Light' : 'Dark'}
-            </PlainBtn>
+              {themeName === 'dark' ? <SunIcon /> : <MoonIcon />}
+            </HeadBtn>
           </HeaderActions>
         </Header>
 
@@ -509,19 +618,6 @@ const App: React.FC = () => {
                 Map
               </ToggleBtn>
             </Toggle>
-
-            <Select
-              value={state.tone}
-              onChange={(e) => patch({ tone: e.target.value as ToneName })}
-              aria-label="Tone"
-              title="Synth voice"
-            >
-              {TONE_NAMES.map((t) => (
-                <option key={t} value={t}>
-                  {TONES[t].label}
-                </option>
-              ))}
-            </Select>
           </Row>
 
           {(baseTuning.description || baseTuning.song) && (
@@ -639,35 +735,6 @@ const App: React.FC = () => {
           baseSpellings={baseTuning.spellings}
           flats={flats}
         />
-
-        <Footer>
-          <p>
-            Open tunings are bar-centric: the open strings <em>are</em> a chord, laying a bar at
-            fret <em>n</em> transposes it by <em>n</em> semitones, and the chord you get depends on
-            which strings you pick. Every reading on this page comes from that model —{' '}
-            <strong>Bar</strong> shows what one straight bar sounds; <strong>Map</strong> shows the
-            whole key across the neck.
-          </p>
-          <p>
-            MIT licensed ·{' '}
-            <a href={REPO_URL} target="_blank" rel="noreferrer">
-              source and how to add a tuning
-            </a>{' '}
-            · tuning data from{' '}
-            <a
-              href="https://github.com/fxcircus/vg800_midi_control"
-              target="_blank"
-              rel="noreferrer"
-            >
-              vg800_midi_control
-            </a>{' '}
-            and{' '}
-            <a href="https://github.com/fxcircus/music_blocks" target="_blank" rel="noreferrer">
-              music_blocks
-            </a>
-            .
-          </p>
-        </Footer>
       </Shell>
     </ThemeProvider>
   );

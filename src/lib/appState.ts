@@ -39,7 +39,7 @@ export const DEFAULT_STATE: AppState = {
   chip: 0,
   view: 'bar',
   pulls: [],
-  tone: 'warm',
+  tone: 'sine',
 };
 
 const STORAGE_KEY = 'gfv.state.v1';

@@ -7,7 +7,7 @@
  * pitch, which is what makes an oscillator read as a steel rather than a beep.
  */
 
-export type ToneName = 'warm' | 'sine';
+export type ToneName = 'sine' | 'saw';
 
 export interface Tone {
   label: string;
@@ -19,9 +19,10 @@ export interface Tone {
   detune?: number;
 }
 
+// Named for what they are: a plain sine, and a sawtooth through a low-pass.
 export const TONES: Record<ToneName, Tone> = {
-  warm: { label: 'Warm', osc: 'sawtooth', filterHz: 1500, filterQ: 1.2, scoop: 0.965 },
-  sine: { label: 'Pure', osc: 'sine', filterHz: 6000, filterQ: 0.5, scoop: 1 },
+  sine: { label: 'Sine', osc: 'sine', filterHz: 6000, filterQ: 0.5, scoop: 1 },
+  saw: { label: 'Saw', osc: 'sawtooth', filterHz: 1500, filterQ: 1.2, scoop: 0.965 },
 };
 
 export const TONE_NAMES = Object.keys(TONES) as ToneName[];
@@ -40,7 +41,7 @@ export class FretboardAudio {
   private voices = new Map<string, Voice>();
   private timeouts: number[] = [];
 
-  tone: ToneName = 'warm';
+  tone: ToneName = 'sine';
   volume = 0.7;
 
   /** Called with the set of currently sounding string indices. */
