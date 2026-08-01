@@ -1,28 +1,37 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { displayNote, intervalLabel, midiPc, type SlantPosition } from '../lib/chordEngine';
+import { displayNote, intervalLabel, midiPc } from '../lib/chordEngine';
 import { DEGREE_INK, degreeColor, intervalColor } from '../lib/noteColors';
+import {
+  FINISHES,
+  barGeom,
+  isWound,
+  stringGauge,
+  type BoardPrefs,
+  type Finish,
+} from '../lib/boardStyles';
 
-const INLAY_FRETS = [3, 5, 7, 9, 15, 17, 19, 21];
-const DOUBLE_INLAY_FRETS = [12, 24];
+const INLAY_FRETS = [3, 5, 7, 9];
+const DOUBLE_INLAY_FRETS = [12];
+const SUITS = ['♠', '♦', '♥', '♣'];
 
 // Fixed columns; the fret width is RESPONSIVE (measured from the container) so
 // the board fills whatever room it is given and scrolls when there isn't enough.
-const LABEL_W = 46;
-// Wide enough for the largest marker (36px + breathing room) — a narrower open
-// column used to squeeze fret-0 markers into ovals.
-const OPEN_W = 40;
+const LABEL_W = 44;
+const OPEN_W = 42;
 const MIN_FRET_W = 30;
-const MAX_FRET_W = 72;
-const MIN_ROW_H = 26;
-const MAX_ROW_H = 48;
-const BOARD_PAD_X = 6;
+const MAX_FRET_W = 62;
+const BOARD_TOP_GAP = 26; // room for the bar's bullet nose above the board
+const BOARD_BOTTOM_GAP = 30; // room for its tail hanging over the neck edge
 
 const SCALE_DEGREE = ['1', '♭2', '2', '♭3', '3', '4', '♭5', '5', '♭6', '6', '♭7', '7'];
 
-// x of a fret column's centre within a string row, for a given fret width
+/** How long the bar takes to slide between frets; markers wait for it. */
+const SLIDE_MS = 160;
+
+// x of a fret column's centre within the board surface
 const fretCenterX = (fret: number, fretW: number): number =>
-  LABEL_W + (fret === 0 ? OPEN_W / 2 : OPEN_W + (fret - 1) * fretW + fretW / 2);
+  fret === 0 ? OPEN_W / 2 : OPEN_W + (fret - 1) * fretW + fretW / 2;
 
 export interface FretboardProps {
   /** Open-string MIDI numbers, low string first. */
@@ -46,12 +55,6 @@ export interface FretboardProps {
   onNoteClick: (stringIdx: number, fret: number) => void;
   /** Chord name per fret 0..maxFret (the scan row). */
   scanLabels: (string | null)[];
-  /** Frets where the looked-up chord can be played (accent-ringed). */
-  targetFrets?: Set<number>;
-  /** A 2-string slant to draw as a tilted bar instead of the straight bar. */
-  slant?: SlantPosition | null;
-  /** Scale (melody-map) mode: label every string at the bar with its degree. */
-  scaleActive?: boolean;
   /** Pitch classes of the current key's scale. */
   scalePcs?: Set<number>;
   /** Key root pitch class (for scale-degree labels). */
@@ -66,27 +69,28 @@ export interface FretboardProps {
   flats?: boolean;
   /** Strum the highlighted chord — renders a play button in the top-left corner. */
   onPlay?: () => void;
+  /** The physical board: finish, inlays, bar style, detail toggles. */
+  board: BoardPrefs;
 }
 
 const BoardScroll = styled.div`
   width: 100%;
   min-width: 0;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
 `;
 
-const Board = styled.div`
+const BoardArea = styled.div`
   margin: 0 auto;
-  background: ${({ theme }) => theme.colors.inputBackground};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.medium};
-  padding: 4px ${BOARD_PAD_X}px 6px;
 `;
+
+// ── Scan row ───────────────────────────────────────────────────────────────
 
 const ScanRow = styled.div`
+  position: relative;
+  z-index: 5;
   display: flex;
   align-items: stretch;
-  margin-bottom: 2px;
 `;
 
 const ScanSpacer = styled.div`
@@ -97,8 +101,6 @@ const ScanSpacer = styled.div`
   justify-content: center;
 `;
 
-// The board's one empty corner — above the string labels, left of the fret
-// numbers — holds the strum button.
 const PlayBtn = styled.button`
   display: flex;
   align-items: center;
@@ -121,108 +123,116 @@ const PlayBtn = styled.button`
   }
 `;
 
-const ScanCell = styled.button<{ $active: boolean; $target: boolean }>`
+const ScanCell = styled.button<{ $active: boolean }>`
   margin: 0;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  padding: 3px 0 4px;
-  border: 1px solid ${({ $target, theme }) => ($target ? theme.colors.accent : 'transparent')};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
+  gap: 2px;
+  padding: 3px 0 5px;
+  border: none;
+  border-radius: 5px 5px 0 0;
   cursor: pointer;
-  background: ${({ $active, $target, theme }) =>
-    $active ? `${theme.colors.primary}33` : $target ? `${theme.colors.accent}1f` : 'transparent'};
+  background: ${({ $active, theme }) => ($active ? `${theme.colors.primary}24` : 'transparent')};
   transition: background ${({ theme }) => theme.transitions.fast};
 
   &:hover {
     background: ${({ $active, theme }) =>
-      $active ? `${theme.colors.primary}33` : `${theme.colors.primary}18`};
+      $active ? `${theme.colors.primary}24` : `${theme.colors.primary}14`};
   }
 `;
 
 const ScanFretNum = styled.span<{ $active: boolean; $dot: boolean }>`
-  font-size: 11px;
-  font-weight: ${({ $dot, $active }) => ($dot || $active ? 700 : 500)};
+  font-family: ${({ theme }) => theme.monoFamily};
+  font-size: 12px;
+  font-weight: ${({ $dot, $active }) => ($dot || $active ? 600 : 400)};
   color: ${({ $active, $dot, theme }) =>
     $active ? theme.colors.primary : $dot ? theme.colors.text : theme.colors.textSecondary};
   line-height: 1;
 `;
 
 const ScanChord = styled.span<{ $active: boolean }>`
+  font-family: ${({ theme }) => theme.monoFamily};
   font-size: 8px;
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   line-height: 1;
   color: ${({ $active, theme }) => ($active ? theme.colors.primary : theme.colors.textSecondary)};
-  opacity: ${({ $active }) => ($active ? 1 : 0.75)};
+  opacity: ${({ $active }) => ($active ? 1 : 0.7)};
   white-space: nowrap;
 `;
 
-const StringRow = styled.div`
+// ── Board ──────────────────────────────────────────────────────────────────
+
+const BoardRow = styled.div`
   display: flex;
-  align-items: center;
+  margin-top: ${BOARD_TOP_GAP}px;
 `;
 
-const StringLabel = styled.div<{ $pulled?: boolean }>`
+const LabelsCol = styled.div`
   width: ${LABEL_W}px;
   flex-shrink: 0;
-  text-align: center;
-  font-size: ${({ $pulled, theme }) => ($pulled ? '9px' : theme.fontSizes.sm)};
-  font-weight: 700;
-  line-height: 1;
-  color: ${({ $pulled, theme }) => ($pulled ? theme.colors.accent : theme.colors.textSecondary)};
-  user-select: none;
-`;
-
-const Cell = styled.div<{ $isOpen: boolean; $lineWidth: number }>`
   position: relative;
-  height: 100%;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-
-  /* string line */
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 50%;
-    height: ${({ $lineWidth }) => $lineWidth}px;
-    transform: translateY(-50%);
-    background: ${({ theme }) => theme.colors.border};
-    opacity: 0.9;
-  }
-
-  /* nut after the open column */
-  ${({ $isOpen, theme }) =>
-    $isOpen ? `border-right: 3px solid ${theme.colors.textSecondary}55;` : ''}
 `;
 
-/** How long the bar takes to slide between frets; markers wait for it. */
-const SLIDE_MS = 160;
-
-// The bar — one metal slug for the whole board, so moving between frets is a
-// short SLIDE instead of a teleport.
-const BarSlug = styled.div`
+const StringName = styled.div<{ $pulled?: boolean }>`
   position: absolute;
-  top: -2px;
-  bottom: -2px;
-  width: 8px;
-  border-radius: 3px;
-  z-index: 1;
+  right: 10px;
+  transform: translateY(-50%);
+  font-family: ${({ theme }) => theme.monoFamily};
+  font-size: ${({ $pulled }) => ($pulled ? '9px' : '12px')};
+  font-weight: 600;
+  line-height: 1;
+  color: ${({ $pulled, theme }) => ($pulled ? theme.colors.primary : theme.colors.textSecondary)};
+  user-select: none;
+  white-space: nowrap;
+`;
+
+const Surface = styled.div`
+  position: relative;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.4),
+    inset 0 14px 26px rgba(0, 0, 0, 0.28),
+    0 12px 26px rgba(0, 0, 0, 0.5);
+`;
+
+const Layer = styled.div`
+  position: absolute;
+  inset: 0;
   pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    ${({ theme }) => theme.colors.text},
-    ${({ theme }) => theme.colors.textSecondary}
-  );
-  box-shadow: 0 0 9px ${({ theme }) => `${theme.colors.text}55`};
-  opacity: 0.9;
+`;
+
+const GrainLayer = styled(Layer)`
+  border-radius: inherit;
+  overflow: hidden;
+  mix-blend-mode: overlay;
+`;
+
+const ClickCol = styled.div`
+  position: absolute;
+  top: 0;
+  height: 100%;
+  z-index: 2;
+  cursor: pointer;
+`;
+
+const SideStrip = styled.div`
+  position: relative;
+  height: 14px;
+  border-radius: 0 0 4px 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+`;
+
+// ── The bar ────────────────────────────────────────────────────────────────
+
+const BarWrap = styled.div`
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 3;
+  pointer-events: none;
   transition: left ${SLIDE_MS / 1000}s cubic-bezier(0.3, 0.9, 0.4, 1);
 
   @media (prefers-reduced-motion: reduce) {
@@ -230,99 +240,38 @@ const BarSlug = styled.div`
   }
 `;
 
-// Inlays are an overlay so they sit in the gaps between strings, not on a line.
-const InlayOverlay = styled.div`
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-`;
+// ── Markers ────────────────────────────────────────────────────────────────
 
-const InlayDot = styled.div<{ $left: number; $top: number }>`
-  position: absolute;
-  left: ${({ $left }) => $left}px;
-  top: ${({ $top }) => $top}px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  background: ${({ theme }) => theme.colors.textSecondary};
-  opacity: 0.22;
-`;
+type MarkKind = 'root' | 'chord' | 'scale' | 'dim';
 
-type MarkKind = 'root' | 'chord' | 'scale' | 'slant' | 'dim';
-
-// Markers pop in as the bar arrives at a fret.
 const markIn = keyframes`
   from {
     opacity: 0;
-    transform: scale(0.7);
+    transform: translate(-50%, -50%) scale(0.7);
   }
 `;
 
-// Chord-tone and scale-degree markers are filled with their harmonic-function
-// color ($fill, see lib/noteColors.ts). The root additionally keeps its accent
-// ring, so it reads even for color-blind players; out-of-chord markers stay
-// hollow and dashed.
 const Mark = styled.button<{
-  $kind: MarkKind;
   $isPlaying: boolean;
   $fill?: string;
-  /** The bar is mid-slide: fade this (old-fret) marker out. */
   $fading?: boolean;
+  $dim: boolean;
 }>`
-  position: relative;
-  z-index: 2;
+  position: absolute;
+  z-index: 4;
   border-radius: 50%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* a true circle: never let flex squeeze the width in a narrow column */
   flex-shrink: 0;
-  aspect-ratio: 1;
   line-height: 1;
   border: none;
   padding: 0;
   cursor: pointer;
   user-select: none;
-  background: ${({ $kind, $fill, theme }) => {
-    if ($fill) return $fill;
-    switch ($kind) {
-      case 'root':
-        return theme.colors.secondary;
-      case 'slant':
-      case 'chord':
-        return theme.colors.primary;
-      default:
-        return 'transparent';
-    }
-  }};
-  outline: ${({ $kind, theme }) => {
-    switch ($kind) {
-      case 'root':
-      case 'slant':
-        return `2px solid ${theme.colors.accent}`;
-      case 'dim':
-        return `1px dashed ${theme.colors.textSecondary}66`;
-      default:
-        return 'none';
-    }
-  }};
-  outline-offset: ${({ $kind }) => ($kind === 'root' || $kind === 'slant' ? '1px' : '0')};
-  color: ${({ $kind, $fill, theme }) => {
-    if ($fill) return DEGREE_INK;
-    if ($kind === 'dim') return `${theme.colors.textSecondary}aa`;
-    if ($kind === 'scale') return theme.colors.text;
-    return theme.colors.buttonText;
-  }};
-  box-shadow: ${({ $kind, $isPlaying, $fill, theme }) =>
-    $isPlaying
-      ? `0 0 12px ${$fill ?? theme.colors.error}`
-      : $kind === 'dim' || ($kind === 'scale' && !$fill)
-        ? 'none'
-        : '0 2px 4px rgba(0, 0, 0, 0.3)'};
-  transform: ${({ $isPlaying }) => ($isPlaying ? 'scale(1.18)' : 'scale(1)')};
+  background: ${({ $fill }) => $fill ?? 'transparent'};
+  transform: translate(-50%, -50%) ${({ $isPlaying }) => ($isPlaying ? 'scale(1.18)' : 'scale(1)')};
   opacity: ${({ $fading }) => ($fading ? 0 : 1)};
   pointer-events: ${({ $fading }) => ($fading ? 'none' : 'auto')};
   transition:
@@ -338,50 +287,142 @@ const Mark = styled.button<{
   }
 
   &:focus-visible {
-    outline: 2px solid ${({ theme }) => theme.colors.accent};
+    outline: 2px solid ${({ theme }) => theme.colors.primary};
     outline-offset: 2px;
   }
 `;
 
-const SlantSvg = styled.svg`
+const MarkGloss = styled.span`
   position: absolute;
-  left: 0;
-  top: 0;
+  inset: 0;
+  border-radius: 50%;
   pointer-events: none;
-  z-index: 1;
+  background:
+    radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.12) 42%, rgba(255, 255, 255, 0) 62%),
+    radial-gradient(circle at 62% 108%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 46%);
 `;
 
-const SlantBar = styled.line`
-  stroke: ${({ theme }) => theme.colors.text};
-  stroke-width: 8;
-  stroke-linecap: round;
-  opacity: 0.9;
+const MarkHotspot = styled.span`
+  position: absolute;
+  left: 20%;
+  top: 11%;
+  width: 38%;
+  height: 26%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
 `;
 
-const StringArea = styled.div`
-  position: relative;
-`;
-
-const MarkNote = styled.span`
-  font-size: 10px;
-  font-weight: 700;
-`;
-
-const MarkInterval = styled.span`
-  font-size: 7px;
-  font-weight: 600;
-  opacity: 0.85;
-  margin-top: 1px;
-`;
+const DOME_SHADOW =
+  'inset 0 -3px 7px rgba(0,0,0,0.36), inset 0 3px 5px rgba(255,255,255,0.45), inset 0 0 0 1px rgba(255,255,255,0.18), 0 5px 9px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.5)';
 
 interface Marker {
   kind: MarkKind;
   note: string;
   label: string;
   aria: string;
-  /** Harmonic-function fill (see lib/noteColors.ts); undefined = theme default. */
   fill?: string;
 }
+
+// ── Sub-renderers ──────────────────────────────────────────────────────────
+
+const Bar: React.FC<{ prefs: BoardPrefs; fretW: number; left: number }> = ({
+  prefs,
+  fretW,
+  left,
+}) => {
+  const g = barGeom(prefs.barStyle, fretW);
+  return (
+    <BarWrap aria-hidden="true" style={{ left, top: g.top, height: g.h, width: g.w }}>
+      {/* cast shadow */}
+      <div
+        style={{
+          position: 'absolute', left: 3, right: -7, top: g.shadowTop, bottom: 3,
+          borderRadius: g.radius, background: 'rgba(0,0,0,0.6)', filter: 'blur(8px)',
+          opacity: g.shade,
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute', inset: 0, overflow: 'hidden',
+          borderRadius: g.radius, background: g.bg, boxShadow: g.shadow,
+        }}
+      >
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(0,0,0,0.14),rgba(255,255,255,0) 28%,rgba(255,255,255,0.16) 78%,rgba(255,255,255,0.02) 100%)', opacity: g.shade }} />
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: g.noseH, background: 'linear-gradient(180deg,rgba(255,255,255,0.34),rgba(255,255,255,0.05) 26%,rgba(16,21,26,0.28) 62%,rgba(16,21,26,0) 100%)', opacity: g.detail }} />
+        <div style={{ position: 'absolute', left: g.crownX, right: g.crownX, top: g.crownTop, height: g.crownH, borderRadius: '50%', borderTop: '1.5px solid rgba(255,255,255,0.9)', opacity: g.detail }} />
+        <div style={{ position: 'absolute', left: g.plateX, right: g.plateX, top: g.plateTop, bottom: g.plateBot, borderRadius: g.plateR, background: 'linear-gradient(90deg,rgba(255,255,255,0.05),rgba(255,255,255,0.16) 44%,rgba(255,255,255,0.03))', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.4), 0 0 0 1px rgba(24,30,36,0.28)', opacity: g.plate }} />
+        <div style={{ position: 'absolute', left: g.specX, top: g.specTop, width: g.specW, height: g.specH, borderRadius: '50%', background: 'radial-gradient(closest-side,rgba(255,255,255,0.92),rgba(255,255,255,0))', opacity: g.detail }} />
+        <div style={{ position: 'absolute', left: g.sheenX, top: g.sheenTop, bottom: g.sheenBot, width: g.sheenW, background: 'linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,0.98) 12%,rgba(255,255,255,0.9) 80%,rgba(255,255,255,0.2))', filter: 'blur(0.7px)', opacity: g.shade }} />
+        <div style={{ position: 'absolute', left: g.bandX, top: g.bandTop, bottom: g.bandBot, width: g.bandW, background: 'linear-gradient(180deg,rgba(28,34,40,0),rgba(28,34,40,0.5) 18%,rgba(28,34,40,0.42) 82%,rgba(28,34,40,0))', filter: 'blur(1.4px)', opacity: g.plate }} />
+        <div style={{ position: 'absolute', left: g.scoopX, bottom: g.scoopBot, width: g.scoopD, height: g.scoopD, borderRadius: '50%', background: 'radial-gradient(ellipse at 50% 4%,rgba(28,34,40,0.82),rgba(96,106,116,0.6) 40%,rgba(206,215,222,0.72) 72%,rgba(250,252,254,0.85))', boxShadow: 'inset 0 -2px 0 rgba(255,255,255,0.9), inset 0 5px 9px rgba(0,0,0,0.45)', opacity: g.plate }} />
+        <div style={{ position: 'absolute', left: g.screwX, bottom: g.screwBot, width: g.screwD, height: g.screwD, borderRadius: '50%', background: 'radial-gradient(circle at 34% 28%,#f7e2ab,#c49a44 58%,#7c6020)', boxShadow: '0 0 0 1px rgba(18,14,6,0.6)', opacity: g.plate }} />
+      </div>
+    </BarWrap>
+  );
+};
+
+interface Inlay {
+  left: number;
+  top: number;
+  w: number;
+  h: number;
+  skew?: string;
+  radius?: string;
+  clip?: string;
+  glyph?: string;
+  size?: number;
+  transparent?: boolean;
+}
+
+function buildInlays(prefs: BoardPrefs, fretW: number, rowH: number, boardH: number): Inlay[] {
+  const out: Inlay[] = [];
+  const marked = [...INLAY_FRETS, ...DOUBLE_INLAY_FRETS];
+  marked.forEach((f, idx) => {
+    const x = fretCenterX(f, fretW);
+    const dbl = DOUBLE_INLAY_FRETS.includes(f);
+    if (prefs.inlay === 'dots') {
+      const d = Math.round(Math.max(13, Math.min(26, Math.min(rowH * 0.62, fretW * 0.42))));
+      if (dbl) {
+        out.push({ left: x, top: boardH / 2 - rowH, w: d, h: d, radius: '50%' });
+        out.push({ left: x, top: boardH / 2 + rowH, w: d, h: d, radius: '50%' });
+      } else {
+        out.push({ left: x, top: boardH / 2, w: d, h: d, radius: '50%' });
+      }
+    } else if (prefs.inlay === 'trapezoid') {
+      const w = fretW * 0.44;
+      const taper = 'polygon(0 13%,100% 0,100% 100%,0 87%)';
+      if (dbl) {
+        const h = boardH * 0.31;
+        out.push({ left: x, top: boardH * 0.285, w, h, clip: taper, radius: '1px' });
+        out.push({ left: x, top: boardH * 0.715, w, h, clip: taper, radius: '1px' });
+      } else {
+        out.push({ left: x, top: boardH / 2, w, h: boardH * 0.68, clip: taper, radius: '1px' });
+      }
+    } else if (prefs.inlay === 'blocks') {
+      const w = fretW * 0.68;
+      out.push({ left: x, top: boardH / 2, w, h: boardH * (dbl ? 0.78 : 0.62), radius: '2px' });
+    } else if (prefs.inlay === 'split') {
+      const w = fretW * 0.52;
+      const h = Math.max(8, boardH * 0.17);
+      out.push({ left: x, top: boardH * (dbl ? 0.22 : 0.29), w, h, skew: 'skewX(-20deg)', radius: '1px' });
+      out.push({ left: x, top: boardH * (dbl ? 0.78 : 0.71), w, h, skew: 'skewX(-20deg)', radius: '1px' });
+      if (dbl) out.push({ left: x, top: boardH * 0.5, w, h, skew: 'skewX(-20deg)', radius: '1px' });
+    } else {
+      const size = Math.max(15, Math.min(30, boardH * 0.26));
+      const glyph = SUITS[idx % 4];
+      if (dbl) {
+        out.push({ left: x, top: boardH * 0.3, w: size * 1.1, h: size * 1.1, glyph, size, transparent: true });
+        out.push({ left: x, top: boardH * 0.7, w: size * 1.1, h: size * 1.1, glyph, size, transparent: true });
+      } else {
+        out.push({ left: x, top: boardH / 2, w: size * 1.2, h: size * 1.2, glyph, size, transparent: true });
+      }
+    }
+  });
+  return out;
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
 
 const Fretboard: React.FC<FretboardProps> = ({
   midi,
@@ -396,9 +437,6 @@ const Fretboard: React.FC<FretboardProps> = ({
   playingStrings,
   onNoteClick,
   scanLabels,
-  targetFrets,
-  slant = null,
-  scaleActive = false,
   scalePcs,
   keyRootPc,
   scaleDegreeLabels,
@@ -406,9 +444,11 @@ const Fretboard: React.FC<FretboardProps> = ({
   baseSpellings,
   flats = false,
   onPlay,
+  board,
 }) => {
   const stringCount = midi.length;
   const frets = Array.from({ length: maxFret + 1 }, (_, f) => f);
+  const fin: Finish = FINISHES[board.finish];
 
   // Markers follow the bar, not the click: while the slug slides, the old
   // fret's markers fade out in place; when it lands, they respawn (with the
@@ -425,9 +465,7 @@ const Fretboard: React.FC<FretboardProps> = ({
     return () => window.clearTimeout(t);
   }, [barFret, settledFret]);
 
-  // Measure the available width and size the fret columns to fill it, so the
-  // board uses the space it has instead of leaving it empty. Re-measured on
-  // resize and whenever the neck length changes.
+  // Measure the available width and size the fret columns to fill it.
   const scrollRef = useRef<HTMLDivElement>(null);
   const [availW, setAvailW] = useState(0);
   useLayoutEffect(() => {
@@ -452,17 +490,20 @@ const Fretboard: React.FC<FretboardProps> = ({
   const room = availW || 900;
   const fretW = Math.max(
     MIN_FRET_W,
-    Math.min(MAX_FRET_W, Math.floor((room - 2 * BOARD_PAD_X - LABEL_W - OPEN_W) / maxFret))
+    Math.min(MAX_FRET_W, Math.floor((room - LABEL_W - OPEN_W) / maxFret))
   );
-  const rowH = Math.round(Math.max(MIN_ROW_H, Math.min(MAX_ROW_H, fretW * 0.8)));
-  // Capped at OPEN_W - 4 so the marker fits the open column as a circle too.
-  const markSize = Math.round(Math.min(36, OPEN_W - 4, fretW - 6, rowH - 2));
-  const noteFont = Math.round(Math.max(9, Math.min(16, markSize * 0.42)));
-  const ivFont = Math.round(Math.max(7, Math.min(11, markSize * 0.3)));
-  const boardW = LABEL_W + OPEN_W + maxFret * fretW;
+  const rowH =
+    stringCount > 6
+      ? Math.round(Math.max(22, Math.min(30, fretW * 0.48)))
+      : Math.round(Math.max(30, Math.min(44, fretW * 0.71)));
+  const markSize = Math.round(Math.min(34, rowH - 5, fretW - 8, OPEN_W - 8));
+  const noteFont = Math.round(Math.max(10, Math.min(15, markSize * 0.44)));
+  const ivFont = Math.round(Math.max(7, Math.min(10, markSize * 0.3)));
+  const surfaceW = OPEN_W + maxFret * fretW;
   const boardH = stringCount * rowH;
   const rowY = (s: number) => (stringCount - 1 - s) * rowH + rowH / 2;
   const colW = (f: number) => (f === 0 ? OPEN_W : fretW);
+  const colX = (f: number) => (f === 0 ? 0 : OPEN_W + (f - 1) * fretW);
 
   const degreeFor = (pc: number): string =>
     scaleDegreeLabels?.get(pc) ??
@@ -470,11 +511,9 @@ const Fretboard: React.FC<FretboardProps> = ({
 
   const stringName = (s: number) => `string ${stringCount - s}`;
 
-  /** Which cells carry a marker, and how each renders. */
   const markerAt = (s: number, f: number): Marker | null => {
     const pc = midiPc(midi[s] + f);
 
-    // Map view: every scale tone across the whole neck, colored by degree.
     if (view === 'map') {
       if (!scalePcs?.has(pc)) return null;
       const isKeyRoot = keyRootPc != null && pc === keyRootPc;
@@ -488,38 +527,9 @@ const Fretboard: React.FC<FretboardProps> = ({
       };
     }
 
-    if (slant) {
-      const isLow = s === slant.lowString && f === slant.lowFret;
-      const isHigh = s === slant.highString && f === slant.highFret;
-      if (!isLow && !isHigh) return null;
-      return {
-        kind: 'slant',
-        note: displayNote(pc, flats),
-        label: '',
-        aria: `${displayNote(pc, flats)} — ${stringName(s)}, fret ${f} (slant)`,
-      };
-    }
-
     // Markers live at the SETTLED fret — the bar catches up to barFret first.
     if (f !== settledFret) return null;
 
-    if (scaleActive) {
-      const inScale = !!scalePcs?.has(pc);
-      const isKeyRoot = keyRootPc != null && pc === keyRootPc;
-      const degree = degreeFor(pc);
-      return {
-        kind: !inScale ? 'dim' : isKeyRoot ? 'root' : 'scale',
-        note: displayNote(pc, flats),
-        label: inScale ? degree : '',
-        fill: inScale && degree ? degreeColor(degree) : undefined,
-        aria: `${displayNote(pc, flats)}${
-          inScale ? `, scale degree ${degree}` : ', not in key'
-        } — ${stringName(s)}, fret ${f}`,
-      };
-    }
-
-    // Bar view: chord tones colored by their function in the chord
-    // (root red, 3rd orange, 5th lime, 7th green, 9 blue, 4/6 purple).
     const isActive = activeStrings === null || activeStrings.has(s);
     const interval = rootPc !== null ? intervalLabel((pc - rootPc + 12) % 12, rootHasFlat7) : '';
     return {
@@ -531,12 +541,12 @@ const Fretboard: React.FC<FretboardProps> = ({
     };
   };
 
-  const inlayFrets = INLAY_FRETS.filter((f) => f <= maxFret);
-  const doubleInlays = DOUBLE_INLAY_FRETS.filter((f) => f <= maxFret);
+  const inlays = buildInlays(board, fretW, rowH, boardH);
+  const markFrets = view === 'map' ? frets : [settledFret];
 
   return (
     <BoardScroll ref={scrollRef}>
-      <Board style={{ width: boardW }}>
+      <BoardArea style={{ width: LABEL_W + surfaceW }}>
         <ScanRow>
           <ScanSpacer>
             {onPlay && (
@@ -551,23 +561,15 @@ const Fretboard: React.FC<FretboardProps> = ({
             )}
           </ScanSpacer>
           {frets.map((f) => {
-            const isTarget = !!targetFrets?.has(f);
-            const isDot = inlayFrets.includes(f) || doubleInlays.includes(f);
+            const isDot = INLAY_FRETS.includes(f) || DOUBLE_INLAY_FRETS.includes(f);
             return (
               <ScanCell
                 key={f}
                 type="button"
                 style={{ width: colW(f) }}
                 $active={f === barFret}
-                $target={isTarget}
                 onClick={() => onBarFretChange(f)}
-                title={
-                  isTarget
-                    ? `${scanLabels[f] ?? ''} — the chord you looked up plays here (fret ${f})`
-                    : scanLabels[f]
-                      ? `${scanLabels[f]} — bar at fret ${f}`
-                      : `Bar at fret ${f}`
-                }
+                title={scanLabels[f] ? `${scanLabels[f]} — bar at fret ${f}` : `Bar at fret ${f}`}
               >
                 <ScanFretNum $active={f === barFret} $dot={isDot}>
                   {f}
@@ -578,28 +580,15 @@ const Fretboard: React.FC<FretboardProps> = ({
           })}
         </ScanRow>
 
-        <StringArea>
-          {view === 'bar' && !slant && (
-            <BarSlug style={{ left: fretCenterX(barFret, fretW) - 4 }} aria-hidden="true" />
-          )}
-          {view === 'bar' && slant && (
-            <SlantSvg width={boardW} height={boardH} aria-hidden="true">
-              <SlantBar
-                x1={fretCenterX(slant.lowFret, fretW)}
-                y1={rowY(slant.lowString)}
-                x2={fretCenterX(slant.highFret, fretW)}
-                y2={rowY(slant.highString)}
-              />
-            </SlantSvg>
-          )}
-
-          {Array.from({ length: stringCount }, (_, row) => {
-            const s = stringCount - 1 - row; // render the high string on top
-            const isPulled = !!pulled?.[s];
-            return (
-              <StringRow key={s} style={{ height: rowH }}>
-                <StringLabel
+        <BoardRow>
+          <LabelsCol style={{ height: boardH }}>
+            {midi.map((_, s) => {
+              const isPulled = !!pulled?.[s];
+              return (
+                <StringName
+                  key={s}
                   $pulled={isPulled}
+                  style={{ top: rowY(s) }}
                   title={
                     isPulled
                       ? `String ${stringCount - s} — pulled ${baseSpellings?.[s] ?? ''} → ${spellings[s]}`
@@ -607,58 +596,172 @@ const Fretboard: React.FC<FretboardProps> = ({
                   }
                 >
                   {isPulled ? `${baseSpellings?.[s] ?? ''}→${spellings[s]}` : spellings[s]}
-                </StringLabel>
-                {frets.map((f) => {
-                  const m = markerAt(s, f);
+                </StringName>
+              );
+            })}
+          </LabelsCol>
+
+          <Surface style={{ width: surfaceW, height: boardH, background: fin.surface }}>
+            {board.grain && fin.grain !== 'none' && (
+              <GrainLayer style={{ background: fin.grain, opacity: fin.grainOp }} />
+            )}
+
+            {board.wire && (
+              <Layer>
+                {frets.slice(1).map((k) => {
+                  const x = OPEN_W + k * fretW;
                   return (
-                    <Cell
-                      key={f}
-                      style={{ width: colW(f) }}
-                      $isOpen={f === 0}
-                      $lineWidth={1 + (stringCount - 1 - s) * (stringCount > 6 ? 0.25 : 0.4)}
-                      onClick={() => onBarFretChange(f)}
-                    >
-                      {m && (
-                        <Mark
-                          type="button"
-                          style={{ width: markSize, height: markSize }}
-                          $kind={m.kind}
-                          $fill={m.fill}
-                          $fading={view === 'bar' && sliding}
-                          $isPlaying={playingStrings.has(s) && (view === 'map' ? f === barFret : true)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onNoteClick(s, f);
-                          }}
-                          title={m.aria}
-                          aria-label={m.aria}
-                        >
-                          <MarkNote style={{ fontSize: noteFont }}>{m.note}</MarkNote>
-                          {m.label && (
-                            <MarkInterval style={{ fontSize: ivFont }}>{m.label}</MarkInterval>
-                          )}
-                        </Mark>
-                      )}
-                    </Cell>
+                    <React.Fragment key={k}>
+                      <div style={{ position: 'absolute', left: x, top: 0, bottom: 0, width: 4, transform: 'translateX(-50%)', background: fin.wire, boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.28), inset -1px 0 0 rgba(0,0,0,0.35), 3px 0 4px rgba(0,0,0,0.4)' }} />
+                      <div style={{ position: 'absolute', left: x + 2, top: 0, bottom: 0, width: 1, background: 'rgba(0,0,0,0.55)' }} />
+                    </React.Fragment>
                   );
                 })}
-              </StringRow>
-            );
-          })}
+                <div style={{ position: 'absolute', left: OPEN_W, top: 0, bottom: 0, width: 7, transform: 'translateX(-50%)', background: fin.nut, boxShadow: '3px 0 6px rgba(0,0,0,0.5)' }} />
+              </Layer>
+            )}
 
-          <InlayOverlay aria-hidden="true">
-            {inlayFrets.map((f) => (
-              <InlayDot key={f} $left={fretCenterX(f, fretW)} $top={boardH / 2} />
+            <Layer>
+              {inlays.map((i, ix) => (
+                <div
+                  key={ix}
+                  style={{
+                    position: 'absolute', left: i.left, top: i.top, width: i.w, height: i.h,
+                    transform: `translate(-50%,-50%) ${i.skew ?? ''}`,
+                    borderRadius: i.radius ?? 0,
+                    clipPath: i.clip ?? 'none',
+                    background: i.transparent ? 'transparent' : fin.inlayBg,
+                    boxShadow: i.transparent ? 'none' : fin.inlayShadow,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    font: `400 ${i.size ?? 0}px/1 inherit`,
+                    color: fin.inlay,
+                  }}
+                >
+                  {i.glyph ?? ''}
+                </div>
+              ))}
+            </Layer>
+
+            <Layer>
+              {midi.map((m, s) => {
+                const y = rowY(s);
+                const g = Math.round(stringGauge(m, board.gauges) * 10) / 10;
+                const wound = isWound(m, board.gauges);
+                return (
+                  <React.Fragment key={s}>
+                    <div style={{ position: 'absolute', left: 0, right: 0, top: y + g / 2 + 0.6, height: Math.max(1.5, g * 0.8), background: 'rgba(0,0,0,0.55)', filter: 'blur(1.6px)' }} />
+                    <div style={{ position: 'absolute', left: 0, right: 0, top: y, height: g, transform: 'translateY(-50%)', background: wound ? fin.stringWound : fin.stringPlain, boxShadow: '0 0 1px rgba(0,0,0,0.5)' }} />
+                    {wound && (
+                      <div style={{ position: 'absolute', left: 0, right: 0, top: y, height: g, transform: 'translateY(-50%)', background: 'repeating-linear-gradient(76deg,rgba(0,0,0,0.4) 0 1px,rgba(255,255,255,0.3) 1px 2.4px)', opacity: 0.55 }} />
+                    )}
+                    <div style={{ position: 'absolute', left: 0, right: 0, top: y - g / 2 + 0.4, height: 1, background: fin.stringCore, opacity: g >= 2 ? 0.9 : 0.7 }} />
+                    {board.gauges && (
+                      <div style={{ position: 'absolute', left: 0, right: 0, top: y - g / 2, height: 1, background: 'rgba(255,255,255,0.5)', opacity: 0.55 }} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </Layer>
+
+            {frets.map((f) => (
+              <ClickCol
+                key={f}
+                style={{ left: colX(f), width: colW(f) }}
+                title={`Bar at fret ${f}`}
+                onClick={() => onBarFretChange(f)}
+              />
             ))}
-            {doubleInlays.map((f) => (
-              <React.Fragment key={f}>
-                <InlayDot $left={fretCenterX(f, fretW)} $top={boardH * 0.3} />
-                <InlayDot $left={fretCenterX(f, fretW)} $top={boardH * 0.7} />
-              </React.Fragment>
-            ))}
-          </InlayOverlay>
-        </StringArea>
-      </Board>
+
+            {view === 'bar' && (
+              <Bar prefs={board} fretW={fretW} left={fretCenterX(barFret, fretW)} />
+            )}
+
+            {midi.map((_, s) =>
+              markFrets.map((f) => {
+                const m = markerAt(s, f);
+                if (!m) return null;
+                const dim = m.kind === 'dim';
+                return (
+                  <Mark
+                    key={`${s}:${f}`}
+                    type="button"
+                    style={{
+                      left: fretCenterX(f, fretW),
+                      top: rowY(s),
+                      width: markSize,
+                      height: markSize,
+                      color: dim ? fin.dimInk : DEGREE_INK,
+                      outline:
+                        m.kind === 'root'
+                          ? `2px solid ${fin.ring}`
+                          : dim
+                            ? `1px dashed ${fin.dimRing}`
+                            : 'none',
+                      outlineOffset: m.kind === 'root' ? 1 : 0,
+                      boxShadow: playingStrings.has(s) && (view === 'map' ? f === barFret : true)
+                        ? `0 0 12px ${m.fill ?? fin.ring}, ${DOME_SHADOW}`
+                        : dim
+                          ? 'none'
+                          : DOME_SHADOW,
+                    }}
+                    $dim={dim}
+                    $fill={dim ? undefined : (m.fill ?? fin.inlay)}
+                    $fading={view === 'bar' && sliding}
+                    $isPlaying={playingStrings.has(s) && (view === 'map' ? f === barFret : true)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNoteClick(s, f);
+                    }}
+                    title={m.aria}
+                    aria-label={m.aria}
+                  >
+                    {!dim && (
+                      <>
+                        <MarkGloss aria-hidden="true" />
+                        <MarkHotspot aria-hidden="true" />
+                      </>
+                    )}
+                    <span style={{ position: 'relative', fontWeight: 700, fontSize: noteFont }}>
+                      {m.note}
+                    </span>
+                    {m.label && markSize >= 22 && (
+                      <span
+                        style={{
+                          position: 'relative',
+                          fontWeight: 600,
+                          fontSize: ivFont,
+                          opacity: 0.85,
+                          marginTop: 1,
+                        }}
+                      >
+                        {m.label}
+                      </span>
+                    )}
+                  </Mark>
+                );
+              })
+            )}
+          </Surface>
+        </BoardRow>
+
+        {board.side && (
+          <div style={{ display: 'flex', marginBottom: BOARD_BOTTOM_GAP }}>
+            <div style={{ width: LABEL_W, flexShrink: 0 }} />
+            <SideStrip style={{ width: surfaceW, background: fin.edge }}>
+              {INLAY_FRETS.map((f) => (
+                <div key={f} style={{ position: 'absolute', left: fretCenterX(f, fretW), top: 7, width: 5, height: 5, borderRadius: '50%', transform: 'translate(-50%,-50%)', background: fin.inlay, opacity: 0.85 }} />
+              ))}
+              {DOUBLE_INLAY_FRETS.map((f) => (
+                <React.Fragment key={f}>
+                  <div style={{ position: 'absolute', left: fretCenterX(f, fretW) - 5, top: 7, width: 5, height: 5, borderRadius: '50%', transform: 'translate(-50%,-50%)', background: fin.inlay, opacity: 0.85 }} />
+                  <div style={{ position: 'absolute', left: fretCenterX(f, fretW) + 5, top: 7, width: 5, height: 5, borderRadius: '50%', transform: 'translate(-50%,-50%)', background: fin.inlay, opacity: 0.85 }} />
+                </React.Fragment>
+              ))}
+            </SideStrip>
+          </div>
+        )}
+        {!board.side && <div style={{ height: BOARD_BOTTOM_GAP }} />}
+      </BoardArea>
     </BoardScroll>
   );
 };

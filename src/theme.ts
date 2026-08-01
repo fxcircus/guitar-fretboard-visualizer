@@ -1,7 +1,10 @@
 /**
- * A deliberately plain token set — enough structure for the components to be
- * themeable, no house style baked in. Swap the colour values and the whole app
- * follows.
+ * Theme tokens, from the "Fretboard Redesign" Claude Design project.
+ *
+ * Dark is direction 1A "Workbench" — real wood, warm amber chrome, the board
+ * is the instrument. Light is direction 1B "Shop drawing" — a luthier's plate,
+ * ink on paper with a rust accent. The board itself (wood, wire, strings, bar)
+ * is themed separately per finish in lib/boardStyles.ts.
  */
 export interface Theme {
   name: 'dark' | 'light';
@@ -25,61 +28,64 @@ export interface Theme {
   shadows: { small: string; large: string };
   fontFamily: string;
   monoFamily: string;
+  titleFamily: string;
   transitions: { fast: string };
 }
 
 const shared = {
   spacing: { xs: '4px', sm: '8px', md: '14px', lg: '22px' },
-  borderRadius: { small: '5px', medium: '9px', large: '16px' },
+  borderRadius: { small: '6px', medium: '10px', large: '16px' },
   fontSizes: { xs: '11px', sm: '13px', md: '15px', lg: '19px' },
-  fontFamily:
-    "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-  monoFamily: "'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+  fontFamily: "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  monoFamily: "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+  titleFamily: "'Instrument Serif', Georgia, serif",
   transitions: { fast: '0.15s ease' },
 };
 
+// 1A Workbench
 export const darkTheme: Theme = {
   ...shared,
   name: 'dark',
   colors: {
-    background: '#12141a',
-    card: '#1a1d26',
-    inputBackground: '#20242f',
-    border: '#333a49',
-    text: '#e8eaf0',
-    textSecondary: '#8f97ab',
-    primary: '#5eb8ff',
+    background: '#12100c',
+    card: '#16130f',
+    inputBackground: '#221c14',
+    border: '#3a3124',
+    text: '#f0e9dc',
+    textSecondary: '#8b7d68',
+    primary: '#e0a55c',
     secondary: '#c8873c',
-    accent: '#f0a63c',
+    accent: '#c8873c',
     warning: '#e5c04a',
     error: '#e2585d',
-    buttonText: '#0d0f14',
+    buttonText: '#16130f',
   },
   shadows: {
-    small: '0 1px 3px rgba(0,0,0,0.4)',
-    large: '0 12px 32px rgba(0,0,0,0.55)',
+    small: '0 1px 3px rgba(0,0,0,0.45)',
+    large: '0 26px 50px rgba(0,0,0,0.65)',
   },
 };
 
+// 1B Shop drawing
 export const lightTheme: Theme = {
   ...shared,
   name: 'light',
   colors: {
-    background: '#f4f5f8',
-    card: '#ffffff',
-    inputBackground: '#eef0f5',
-    border: '#d3d8e2',
-    text: '#1b1f2a',
-    textSecondary: '#666e80',
-    primary: '#1d6fd0',
-    secondary: '#a4611c',
-    accent: '#c07405',
-    warning: '#9a7c05',
-    error: '#c03840',
-    buttonText: '#ffffff',
+    background: '#e6dfcf',
+    card: '#efe9dc',
+    inputBackground: '#f7f3e8',
+    border: '#c9bfa6',
+    text: '#17150f',
+    textSecondary: '#6e6754',
+    primary: '#a8442a',
+    secondary: '#a8442a',
+    accent: '#a8442a',
+    warning: '#8a6d10',
+    error: '#a8442a',
+    buttonText: '#efe9dc',
   },
   shadows: {
-    small: '0 1px 3px rgba(20,25,40,0.12)',
-    large: '0 12px 32px rgba(20,25,40,0.18)',
+    small: '0 1px 3px rgba(23,21,15,0.15)',
+    large: '8px 8px 0 rgba(23,21,15,0.16)',
   },
 };

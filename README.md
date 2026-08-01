@@ -161,7 +161,8 @@ src/lib/
   chordCards.ts    the card surface: every playable chord, degrees first
   appState.ts      URL and localStorage round-tripping
 src/components/
-  Fretboard.tsx    the board (bar view and map view)
+  Fretboard.tsx    the board (bar and map views, wood finishes, realistic bars)
+  ../lib/boardStyles.ts  finishes, inlay styles, bar geometry (from Claude Design)
   TuningPicker.tsx searchable catalog menu
 ```
 

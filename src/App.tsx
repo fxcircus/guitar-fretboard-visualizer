@@ -18,9 +18,19 @@ import {
   CUSTOM_MIDI_MAX,
   CUSTOM_MIDI_MIN,
   CUSTOM_TUNING_ID,
+  GROUP_LABELS,
   MAX_STRINGS,
   MIN_STRINGS,
 } from './lib/tunings';
+import {
+  BAR_STYLES,
+  FINISHES,
+  INLAY_STYLES,
+  loadBoardPrefs,
+  saveBoardPrefs,
+  type BoardPrefs,
+  type FinishName,
+} from './lib/boardStyles';
 import { applyPulls, normalizePulls, resolveTuning } from './lib/tuningState';
 import { deriveKey } from './lib/keyFromTuning';
 import { collectChordCards, type ChordCard } from './lib/chordCards';
@@ -58,6 +68,13 @@ const SpeakerIcon = () => (
   </svg>
 );
 
+const GearIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="3.2" />
+    <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.11a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.11A1.7 1.7 0 0 0 4.67 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.11a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.11a1.7 1.7 0 0 0-1.49 1z" />
+  </svg>
+);
+
 const GlobalStyle = createGlobalStyle`
   *, *::before, *::after { box-sizing: border-box; }
   body {
@@ -86,11 +103,29 @@ const Header = styled.header`
   flex-wrap: wrap;
 `;
 
+const TitleBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+`;
+
 const Title = styled.h1`
   margin: 0;
-  font-size: ${({ theme }) => theme.fontSizes.lg};
-  font-weight: 800;
+  font-family: ${({ theme }) => theme.titleFamily};
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1;
   letter-spacing: -0.01em;
+  color: ${({ theme }) => theme.colors.text};
+`;
+
+const NeckLabel = styled.span`
+  font-family: ${({ theme }) => theme.monoFamily};
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const HeaderActions = styled.div`
@@ -104,11 +139,14 @@ const HeadBtn = styled.button<{ $open?: boolean }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border: 1px solid ${({ $open, theme }) => ($open ? theme.colors.primary : theme.colors.border)};
-  border-radius: ${({ theme }) => theme.borderRadius.small};
-  background: transparent;
+  border-radius: 50%;
+  background: ${({ $open, theme }) =>
+    $open
+      ? `${theme.colors.primary}24`
+      : `linear-gradient(180deg, ${theme.colors.inputBackground}, ${theme.colors.card})`};
   color: ${({ $open, theme }) => ($open ? theme.colors.primary : theme.colors.textSecondary)};
   cursor: pointer;
 
@@ -136,6 +174,19 @@ const SoundPop = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.medium};
   box-shadow: ${({ theme }) => theme.shadows.large};
+`;
+
+const BoardPop = styled(SoundPop)`
+  width: min(430px, calc(100vw - 32px));
+  gap: 13px;
+`;
+
+const SwatchDot = styled.span<{ $c: string }>`
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: ${({ $c }) => $c};
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
 `;
 
 const VolumeSlider = styled.input`
@@ -234,6 +285,19 @@ const App: React.FC = () => {
   const [soundOpen, setSoundOpen] = useState(false);
   const soundWrapRef = useRef<HTMLDivElement>(null);
 
+  // The physical board (finish, inlays, bar style, detail toggles) — device
+  // preference, persisted locally, from the Fretboard Redesign design project.
+  const [boardPrefs, setBoardPrefs] = useState<BoardPrefs>(loadBoardPrefs);
+  const [boardOpen, setBoardOpen] = useState(false);
+  const boardWrapRef = useRef<HTMLDivElement>(null);
+  const patchBoard = useCallback((u: Partial<BoardPrefs>) => {
+    setBoardPrefs((p) => {
+      const next = { ...p, ...u };
+      saveBoardPrefs(next);
+      return next;
+    });
+  }, []);
+
   const patch = useCallback((updates: Partial<AppState>) => {
     setState((prev) => ({ ...prev, ...updates }));
   }, []);
@@ -255,14 +319,18 @@ const App: React.FC = () => {
     }
   }, [volume]);
 
-  // Close the sound popover on outside click or Escape.
+  // Close popovers on outside click or Escape.
   useEffect(() => {
-    if (!soundOpen) return;
+    if (!soundOpen && !boardOpen) return;
     const onDown = (e: MouseEvent) => {
-      if (!soundWrapRef.current?.contains(e.target as Node)) setSoundOpen(false);
+      if (soundOpen && !soundWrapRef.current?.contains(e.target as Node)) setSoundOpen(false);
+      if (boardOpen && !boardWrapRef.current?.contains(e.target as Node)) setBoardOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSoundOpen(false);
+      if (e.key === 'Escape') {
+        setSoundOpen(false);
+        setBoardOpen(false);
+      }
     };
     window.addEventListener('mousedown', onDown);
     window.addEventListener('keydown', onKey);
@@ -270,7 +338,7 @@ const App: React.FC = () => {
       window.removeEventListener('mousedown', onDown);
       window.removeEventListener('keydown', onKey);
     };
-  }, [soundOpen]);
+  }, [soundOpen, boardOpen]);
 
   // ── Tuning ───────────────────────────────────────────────────────────────
   const baseTuning = useMemo(
@@ -508,7 +576,12 @@ const App: React.FC = () => {
       <GlobalStyle />
       <Shell>
         <Header>
-          <Title>Fretboard Visualizer</Title>
+          <TitleBlock>
+            <Title>Fretboard Visualizer</Title>
+            <NeckLabel>
+              {GROUP_LABELS[baseTuning.group]} · {stringCount} string
+            </NeckLabel>
+          </TitleBlock>
           <HeaderActions>
             <SoundWrap ref={soundWrapRef}>
               <HeadBtn
@@ -556,6 +629,89 @@ const App: React.FC = () => {
             >
               {themeName === 'dark' ? <SunIcon /> : <MoonIcon />}
             </HeadBtn>
+            <SoundWrap ref={boardWrapRef}>
+              <HeadBtn
+                $open={boardOpen}
+                onClick={() => setBoardOpen((o) => !o)}
+                aria-label="Board settings"
+                aria-haspopup="dialog"
+                aria-expanded={boardOpen}
+                title="Board settings"
+              >
+                <GearIcon />
+              </HeadBtn>
+              {boardOpen && (
+                <BoardPop role="dialog" aria-label="Board settings">
+                  <Label>Board settings</Label>
+                  <div>
+                    <Label as="span" style={{ opacity: 0.75 }}>Inlay</Label>
+                    <Row style={{ marginTop: 6 }}>
+                      {INLAY_STYLES.map((s) => (
+                        <Chip
+                          key={s.id}
+                          $active={boardPrefs.inlay === s.id}
+                          aria-pressed={boardPrefs.inlay === s.id}
+                          onClick={() => patchBoard({ inlay: s.id })}
+                          title={`${s.label} inlays`}
+                        >
+                          {s.label}
+                        </Chip>
+                      ))}
+                    </Row>
+                  </div>
+                  <div>
+                    <Label as="span" style={{ opacity: 0.75 }}>Finish</Label>
+                    <Row style={{ marginTop: 6 }}>
+                      {(Object.keys(FINISHES) as FinishName[]).map((k) => (
+                        <Chip
+                          key={k}
+                          $active={boardPrefs.finish === k}
+                          aria-pressed={boardPrefs.finish === k}
+                          onClick={() => patchBoard({ finish: k })}
+                          title={`${FINISHES[k].label} board`}
+                        >
+                          <SwatchDot $c={FINISHES[k].swatch} />
+                          {FINISHES[k].label}
+                        </Chip>
+                      ))}
+                    </Row>
+                  </div>
+                  <div>
+                    <Label as="span" style={{ opacity: 0.75 }}>Details</Label>
+                    <Row style={{ marginTop: 6 }}>
+                      <Chip $active={boardPrefs.grain} aria-pressed={boardPrefs.grain} onClick={() => patchBoard({ grain: !boardPrefs.grain })} title="Wood grain texture">
+                        Grain
+                      </Chip>
+                      <Chip $active={boardPrefs.wire} aria-pressed={boardPrefs.wire} onClick={() => patchBoard({ wire: !boardPrefs.wire })} title="Nut, fret wire and fret shadow">
+                        Nut &amp; frets
+                      </Chip>
+                      <Chip $active={boardPrefs.gauges} aria-pressed={boardPrefs.gauges} onClick={() => patchBoard({ gauges: !boardPrefs.gauges })} title="String gauge variation and sheen">
+                        Gauges
+                      </Chip>
+                      <Chip $active={boardPrefs.side} aria-pressed={boardPrefs.side} onClick={() => patchBoard({ side: !boardPrefs.side })} title="Fret markers on the neck edge">
+                        Side dots
+                      </Chip>
+                    </Row>
+                  </div>
+                  <div>
+                    <Label as="span" style={{ opacity: 0.75 }}>Bar</Label>
+                    <Row style={{ marginTop: 6 }}>
+                      {BAR_STYLES.map((s) => (
+                        <Chip
+                          key={s.id}
+                          $active={boardPrefs.barStyle === s.id}
+                          aria-pressed={boardPrefs.barStyle === s.id}
+                          onClick={() => patchBoard({ barStyle: s.id })}
+                          title={s.hint}
+                        >
+                          {s.label}
+                        </Chip>
+                      ))}
+                    </Row>
+                  </div>
+                </BoardPop>
+              )}
+            </SoundWrap>
           </HeaderActions>
         </Header>
 
@@ -700,6 +856,7 @@ const App: React.FC = () => {
           baseSpellings={baseTuning.spellings}
           flats={flats}
           onPlay={() => strum(activeStringIdxs)}
+          board={boardPrefs}
         />
       </Shell>
     </ThemeProvider>
