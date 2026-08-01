@@ -6,13 +6,18 @@
  * touches this file.
  */
 
-export type FinishName = 'rosewood' | 'maple' | 'ebony' | 'flat';
+export type FinishName = 'rosewood' | 'maple' | 'ebony' | 'flat' | 'paper';
 export type InlayName = 'dots' | 'trapezoid' | 'blocks' | 'split' | 'suits';
 export type BarStyleName = 'tonebar' | 'steel' | 'slim';
 
 export interface Finish {
   label: string;
   swatch: string;
+  /**
+   * 'wood' renders the physical instrument; 'paper' renders the board as a
+   * luthier's shop drawing — ink lines on paper, the bar as an outline.
+   */
+  mode: 'wood' | 'paper';
   surface: string;
   grain: string;
   grainOp: number;
@@ -30,11 +35,14 @@ export interface Finish {
   dimInk: string;
   /** The neck edge below the board (side-dot strip). */
   edge: string;
+  /** Drawing ink (paper mode). */
+  ink: string;
 }
 
 export const FINISHES: Record<FinishName, Finish> = {
   rosewood: {
     label: 'Rosewood',
+    mode: 'wood',
     swatch: '#4a2c1c',
     surface: 'linear-gradient(180deg,#4a2d1d 0%,#3a2216 55%,#2d1a11 100%)',
     grain:
@@ -52,9 +60,11 @@ export const FINISHES: Record<FinishName, Finish> = {
     dimRing: 'rgba(255,255,255,0.4)',
     dimInk: 'rgba(255,255,255,0.72)',
     edge: 'linear-gradient(180deg,#100d09,#1c1710)',
+    ink: '#17150f',
   },
   maple: {
     label: 'Maple',
+    mode: 'wood',
     swatch: '#d9b478',
     surface: 'linear-gradient(180deg,#e3c085 0%,#d3ad70 55%,#c29a5d 100%)',
     grain:
@@ -72,9 +82,11 @@ export const FINISHES: Record<FinishName, Finish> = {
     dimRing: 'rgba(40,32,22,0.45)',
     dimInk: 'rgba(35,28,20,0.72)',
     edge: 'linear-gradient(180deg,#8a6c3e,#6d5430)',
+    ink: '#17150f',
   },
   ebony: {
     label: 'Ebony',
+    mode: 'wood',
     swatch: '#1c1917',
     surface: 'linear-gradient(180deg,#221e1b 0%,#171412 55%,#100e0d 100%)',
     grain: 'repeating-linear-gradient(91deg,rgba(0,0,0,0.5) 0 2px,rgba(255,255,255,0.045) 2px 5px)',
@@ -91,9 +103,11 @@ export const FINISHES: Record<FinishName, Finish> = {
     dimRing: 'rgba(255,255,255,0.34)',
     dimInk: 'rgba(255,255,255,0.7)',
     edge: 'linear-gradient(180deg,#0b0a09,#161311)',
+    ink: '#17150f',
   },
   flat: {
     label: 'Flat UI',
+    mode: 'wood',
     swatch: '#20242f',
     surface: 'linear-gradient(180deg,#232833 0%,#1e222c 100%)',
     grain: 'none',
@@ -110,6 +124,31 @@ export const FINISHES: Record<FinishName, Finish> = {
     dimRing: 'rgba(143,151,171,0.45)',
     dimInk: 'rgba(190,198,214,0.75)',
     edge: '#080a0d',
+    ink: '#17150f',
+  },
+  // Direction 1B "Shop drawing" — the board as a luthier's plate: ink on
+  // paper, strings as gauge-varied ink lines, the bar as an outlined
+  // silhouette with a dashed centerline.
+  paper: {
+    label: 'Shop drawing',
+    swatch: '#efe9dc',
+    mode: 'paper',
+    surface: '#f6f1e6',
+    grain: 'none',
+    grainOp: 0,
+    wire: '#17150f',
+    nut: '#17150f',
+    stringPlain: '#17150f',
+    stringWound: '#17150f',
+    stringCore: 'transparent',
+    inlay: '#17150f',
+    inlayBg: '#17150f',
+    inlayShadow: 'none',
+    ring: 'rgba(0,0,0,0.85)',
+    dimRing: 'rgba(23,21,15,0.4)',
+    dimInk: 'rgba(23,21,15,0.55)',
+    edge: 'transparent',
+    ink: '#17150f',
   },
 };
 

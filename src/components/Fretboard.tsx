@@ -326,12 +326,34 @@ interface Marker {
 
 // ── Sub-renderers ──────────────────────────────────────────────────────────
 
-const Bar: React.FC<{ prefs: BoardPrefs; fretW: number; left: number }> = ({
+const Bar: React.FC<{ prefs: BoardPrefs; fretW: number; left: number; fin: Finish }> = ({
   prefs,
   fretW,
   left,
+  fin,
 }) => {
   const g = barGeom(prefs.barStyle, fretW);
+  if (fin.mode === 'paper') {
+    // Shop drawing: the bar as an outlined silhouette — paper fill, ink
+    // outline, dashed centerline, tonebar face/scoop/screw drawn as outlines.
+    const ink = fin.ink;
+    return (
+      <BarWrap
+        aria-hidden="true"
+        style={{
+          left, top: g.top, height: g.h, width: g.w,
+          borderRadius: g.radius, overflow: 'hidden',
+          background: '#efe9dc', boxShadow: `inset 0 0 0 1.5px ${ink}`,
+        }}
+      >
+        <div style={{ position: 'absolute', left: '50%', top: 2, bottom: 2, width: 0, transform: 'translateX(-50%)', borderLeft: '1px dashed #8a8270' }} />
+        <div style={{ position: 'absolute', left: g.plateX, right: g.plateX, top: g.plateTop, bottom: g.plateBot, border: `1px solid ${ink}`, borderRadius: g.plateR, opacity: g.plate }} />
+        <div style={{ position: 'absolute', left: g.scoopX, bottom: g.scoopBot, width: g.scoopD, height: g.scoopD, border: `1px solid ${ink}`, borderRadius: '50%', background: '#efe9dc', opacity: g.plate }} />
+        <div style={{ position: 'absolute', left: g.screwX, bottom: g.screwBot, width: g.screwD, height: g.screwD, borderRadius: '50%', border: `1px solid ${ink}`, background: '#efe9dc', opacity: g.plate }} />
+        <div style={{ position: 'absolute', left: g.screwX, bottom: g.screwBot + g.screwD / 2, width: g.screwD, height: 1, background: ink, opacity: g.plate }} />
+      </BarWrap>
+    );
+  }
   return (
     <BarWrap aria-hidden="true" style={{ left, top: g.top, height: g.h, width: g.w }}>
       {/* cast shadow */}
@@ -449,6 +471,8 @@ const Fretboard: React.FC<FretboardProps> = ({
   const stringCount = midi.length;
   const frets = Array.from({ length: maxFret + 1 }, (_, f) => f);
   const fin: Finish = FINISHES[board.finish];
+  const paper = fin.mode === 'paper';
+  const MONO = "'IBM Plex Mono', ui-monospace, monospace";
 
   // Markers follow the bar, not the click: while the slug slides, the old
   // fret's markers fade out in place; when it lands, they respawn (with the
@@ -601,12 +625,29 @@ const Fretboard: React.FC<FretboardProps> = ({
             })}
           </LabelsCol>
 
-          <Surface style={{ width: surfaceW, height: boardH, background: fin.surface }}>
+          <Surface
+            style={{
+              width: surfaceW,
+              height: boardH,
+              background: fin.surface,
+              ...(paper
+                ? { border: `1px solid ${fin.ink}`, borderRadius: 0, boxShadow: 'none' }
+                : {}),
+            }}
+          >
             {board.grain && fin.grain !== 'none' && (
               <GrainLayer style={{ background: fin.grain, opacity: fin.grainOp }} />
             )}
 
-            {board.wire && (
+            {board.wire && paper && (
+              <Layer>
+                {frets.slice(1).map((k) => (
+                  <div key={k} style={{ position: 'absolute', left: OPEN_W + k * fretW, top: 0, bottom: 0, width: 1, transform: 'translateX(-50%)', background: fin.ink, opacity: 0.55 }} />
+                ))}
+                <div style={{ position: 'absolute', left: OPEN_W, top: 0, bottom: 0, width: 5, transform: 'translateX(-50%)', background: fin.ink }} />
+              </Layer>
+            )}
+            {board.wire && !paper && (
               <Layer>
                 {frets.slice(1).map((k) => {
                   const x = OPEN_W + k * fretW;
@@ -647,6 +688,12 @@ const Fretboard: React.FC<FretboardProps> = ({
                 const y = rowY(s);
                 const g = Math.round(stringGauge(m, board.gauges) * 10) / 10;
                 const wound = isWound(m, board.gauges);
+                if (paper) {
+                  // Shop drawing: plain solid ink lines, gauge-varied only.
+                  return (
+                    <div key={s} style={{ position: 'absolute', left: 0, right: 0, top: y, height: g, transform: 'translateY(-50%)', background: fin.ink, opacity: 0.85 }} />
+                  );
+                }
                 return (
                   <React.Fragment key={s}>
                     <div style={{ position: 'absolute', left: 0, right: 0, top: y + g / 2 + 0.6, height: Math.max(1.5, g * 0.8), background: 'rgba(0,0,0,0.55)', filter: 'blur(1.6px)' }} />
@@ -673,7 +720,7 @@ const Fretboard: React.FC<FretboardProps> = ({
             ))}
 
             {view === 'bar' && (
-              <Bar prefs={board} fretW={fretW} left={fretCenterX(barFret, fretW)} />
+              <Bar prefs={board} fretW={fretW} left={fretCenterX(barFret, fretW)} fin={fin} />
             )}
 
             {midi.map((_, s) =>
@@ -681,6 +728,7 @@ const Fretboard: React.FC<FretboardProps> = ({
                 const m = markerAt(s, f);
                 if (!m) return null;
                 const dim = m.kind === 'dim';
+                const playing = playingStrings.has(s) && (view === 'map' ? f === barFret : true);
                 return (
                   <Mark
                     key={`${s}:${f}`}
@@ -691,6 +739,9 @@ const Fretboard: React.FC<FretboardProps> = ({
                       width: markSize,
                       height: markSize,
                       color: dim ? fin.dimInk : DEGREE_INK,
+                      // Shop drawing: every mark carries an ink outline; wood
+                      // keeps the borderless dome look.
+                      border: paper && !dim ? `1px solid ${fin.ink}` : undefined,
                       outline:
                         m.kind === 'root'
                           ? `2px solid ${fin.ring}`
@@ -698,16 +749,16 @@ const Fretboard: React.FC<FretboardProps> = ({
                             ? `1px dashed ${fin.dimRing}`
                             : 'none',
                       outlineOffset: m.kind === 'root' ? 1 : 0,
-                      boxShadow: playingStrings.has(s) && (view === 'map' ? f === barFret : true)
-                        ? `0 0 12px ${m.fill ?? fin.ring}, ${DOME_SHADOW}`
-                        : dim
+                      boxShadow: playing
+                        ? `0 0 12px ${m.fill ?? fin.ring}${paper ? '' : `, ${DOME_SHADOW}`}`
+                        : dim || paper
                           ? 'none'
                           : DOME_SHADOW,
                     }}
                     $dim={dim}
                     $fill={dim ? undefined : (m.fill ?? fin.inlay)}
                     $fading={view === 'bar' && sliding}
-                    $isPlaying={playingStrings.has(s) && (view === 'map' ? f === barFret : true)}
+                    $isPlaying={playing}
                     onClick={(e) => {
                       e.stopPropagation();
                       onNoteClick(s, f);
@@ -715,23 +766,31 @@ const Fretboard: React.FC<FretboardProps> = ({
                     title={m.aria}
                     aria-label={m.aria}
                   >
-                    {!dim && (
+                    {!dim && !paper && (
                       <>
                         <MarkGloss aria-hidden="true" />
                         <MarkHotspot aria-hidden="true" />
                       </>
                     )}
-                    <span style={{ position: 'relative', fontWeight: 700, fontSize: noteFont }}>
+                    <span
+                      style={{
+                        position: 'relative',
+                        fontWeight: 700,
+                        fontSize: noteFont,
+                        fontFamily: paper ? MONO : undefined,
+                      }}
+                    >
                       {m.note}
                     </span>
                     {m.label && markSize >= 22 && (
                       <span
                         style={{
                           position: 'relative',
-                          fontWeight: 600,
+                          fontWeight: paper ? 500 : 600,
                           fontSize: ivFont,
                           opacity: 0.85,
                           marginTop: 1,
+                          fontFamily: paper ? MONO : undefined,
                         }}
                       >
                         {m.label}
@@ -746,15 +805,27 @@ const Fretboard: React.FC<FretboardProps> = ({
 
         {board.side && (
           <div style={{ display: 'flex', marginBottom: BOARD_BOTTOM_GAP }}>
-            <div style={{ width: LABEL_W, flexShrink: 0 }} />
-            <SideStrip style={{ width: surfaceW, background: fin.edge }}>
+            {paper ? (
+              <div style={{ width: LABEL_W, flexShrink: 0, font: `400 8px/14px ${MONO}`, textAlign: 'right', paddingRight: 10, color: '#8a8270' }}>
+                edge
+              </div>
+            ) : (
+              <div style={{ width: LABEL_W, flexShrink: 0 }} />
+            )}
+            <SideStrip
+              style={
+                paper
+                  ? { width: surfaceW, background: 'transparent', border: '1px solid #c4bba6', borderTop: 'none', borderRadius: 0, boxShadow: 'none' }
+                  : { width: surfaceW, background: fin.edge }
+              }
+            >
               {INLAY_FRETS.map((f) => (
-                <div key={f} style={{ position: 'absolute', left: fretCenterX(f, fretW), top: 7, width: 5, height: 5, borderRadius: '50%', transform: 'translate(-50%,-50%)', background: fin.inlay, opacity: 0.85 }} />
+                <div key={f} style={{ position: 'absolute', left: fretCenterX(f, fretW), top: 7, width: paper ? 4 : 5, height: paper ? 4 : 5, borderRadius: '50%', transform: 'translate(-50%,-50%)', background: paper ? fin.ink : fin.inlay, opacity: paper ? 1 : 0.85 }} />
               ))}
               {DOUBLE_INLAY_FRETS.map((f) => (
                 <React.Fragment key={f}>
-                  <div style={{ position: 'absolute', left: fretCenterX(f, fretW) - 5, top: 7, width: 5, height: 5, borderRadius: '50%', transform: 'translate(-50%,-50%)', background: fin.inlay, opacity: 0.85 }} />
-                  <div style={{ position: 'absolute', left: fretCenterX(f, fretW) + 5, top: 7, width: 5, height: 5, borderRadius: '50%', transform: 'translate(-50%,-50%)', background: fin.inlay, opacity: 0.85 }} />
+                  <div style={{ position: 'absolute', left: fretCenterX(f, fretW) - 5, top: 7, width: paper ? 4 : 5, height: paper ? 4 : 5, borderRadius: '50%', transform: 'translate(-50%,-50%)', background: paper ? fin.ink : fin.inlay, opacity: paper ? 1 : 0.85 }} />
+                  <div style={{ position: 'absolute', left: fretCenterX(f, fretW) + 5, top: 7, width: paper ? 4 : 5, height: paper ? 4 : 5, borderRadius: '50%', transform: 'translate(-50%,-50%)', background: paper ? fin.ink : fin.inlay, opacity: paper ? 1 : 0.85 }} />
                 </React.Fragment>
               ))}
             </SideStrip>
