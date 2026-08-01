@@ -352,10 +352,12 @@ export function findSlantPositions(
 
   for (let a = 0; a + 1 < n; a++) {
     const b = a + 1; // adjacent strings only
-    for (let fa = 0; fa <= maxFret; fa++) {
+    // Both endpoints start at fret 1: fret 0 is the open string, which the nut
+    // frets, not the bar — "slant to the nut" is not a move a bar can make.
+    for (let fa = 1; fa <= maxFret; fa++) {
       for (const d of [1, -1, 2, -2]) {
         const fb = fa + d;
-        if (fb < 0 || fb > maxFret) continue;
+        if (fb < 1 || fb > maxFret) continue;
         const pa = midiPc(tuningMidi[a] + fa);
         const pb = midiPc(tuningMidi[b] + fb);
         if (!wanted(pa) || !wanted(pb) || pa === pb) continue;

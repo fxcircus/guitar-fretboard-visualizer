@@ -612,16 +612,16 @@
         },
         {
           "name": "Young Cinnamon",
-          "notes": "D A D G B E",
+          "notes": "D A D G B D",
           "offsets": [
-            0,
+            -2,
             0,
             0,
             0,
             0,
             -2
           ],
-          "ref": "Neil Young · “Cinnamon Girl” (Drop D)"
+          "ref": "Neil Young · “Cinnamon Girl” (Double Drop D)"
         },
         {
           "name": "Joni Cab",
@@ -1023,13 +1023,13 @@
     {
       "name": "Banjo",
       "pitches": [
+        67,
         50,
         55,
         59,
-        62,
-        67
+        62
       ],
-      "notes": "D G B D G",
+      "notes": "G D G B D",
       "ref": "5-string · open G"
     }
   ],
@@ -1112,7 +1112,7 @@
         75,
         78
       ],
-      "spell": "B D D F# G# B D G# D# F#"
+      "spell": "B D D# F# G# B D# G# D# F#"
     }
   ],
   "TUNING_TIPS": {
@@ -1203,7 +1203,7 @@
       "song": "\"Duality\" — Slipknot"
     },
     "Drop Bb": {
-      "desc": "Drop D down a fourth (Drop A#) for a crushing low register.",
+      "desc": "Drop D down a major third (Drop A#) for a crushing low register.",
       "song": "\"Shadow Moses\" — Bring Me The Horizon"
     },
     "Drop A": {
@@ -1250,7 +1250,7 @@
       "song": "\"Black Hole Sun\" — Soundgarden"
     },
     "Young Cinnamon": {
-      "desc": "Neil Young's crunch tuning — the low string drops a whole step for the riff's growl.",
+      "desc": "Neil Young's crunch tuning — double drop D: BOTH E strings fall a whole step, the high D droning over the riff and carrying the one-note solo.",
       "song": "\"Cinnamon Girl\" — Neil Young"
     },
     "Joni Cab": {
@@ -1258,7 +1258,7 @@
       "song": "\"Big Yellow Taxi\" — Joni Mitchell"
     },
     "Joni Sides": {
-      "desc": "Joni's open-D base — a Dmaj7 rings on the open strings. On the record she capos 4 (sounding F# major); this is the no-capo tuning.",
+      "desc": "Joni's open-D base — a D major chord rings on the open strings. On the record she capos 4 (sounding F# major); this is the no-capo tuning.",
       "song": "\"Both Sides, Now\" — Joni Mitchell"
     },
     "Radio Pyramid": {
@@ -1329,7 +1329,7 @@
       "song": "western swing — Bob Wills; jazz steel — Buddy Emmons"
     },
     "B6 Universal": {
-      "desc": "Jeff Newman's single-neck tuning that fuses the E9 (country) and C6 (jazz/swing) necks, so one neck covers both."
+      "desc": "Jeff Newman's universal tuning that fuses the E9 (country) and C6 (jazz/swing) necks so one neck covers both — here the 10-string cut of his 12-string original."
     },
     "White Keys": {
       "desc": "The natural notes C D E F G A on six strings — the white-key set every mode is drawn from, with C on the low string as home. Identical to C Ionian."

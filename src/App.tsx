@@ -441,8 +441,10 @@ const App: React.FC = () => {
   );
 
   // Snap the bar to a found position AND make the board display that chord:
-  // pick the chip whose string group is the position's grip (falling back to
-  // a same-name chip), so the found chord lights up without a second click.
+  // pick the chip whose string group is the position's grip, else a same-name
+  // chip, else the chip sounding the same pitch-class set (chordsAtFret may
+  // have named the identical notes from a different root — e.g. a Cm7 grip
+  // deduped under its D♯6 alias; the readout's alias line then shows "= Cm7").
   const snapToPosition = useCallback(
     (p: BarPosition) => {
       setSlantPreviewKey(null);
@@ -454,6 +456,13 @@ const App: React.FC = () => {
         idx = there.findIndex(
           (c) => c.match.rootPc === p.match.rootPc && c.match.suffix === p.match.suffix
         );
+      }
+      if (idx < 0) {
+        const posPcs = new Set(p.strings.map((s) => midiPc(tuning.midi[s] + p.fret)));
+        idx = there.findIndex((c) => {
+          const cPcs = new Set(c.strings.map((s) => midiPc(tuning.midi[s] + p.fret)));
+          return cPcs.size === posPcs.size && [...posPcs].every((pc) => cPcs.has(pc));
+        });
       }
       if (idx >= 0) setSelectedChipIdx(idx);
       patch({ barFret: p.fret });

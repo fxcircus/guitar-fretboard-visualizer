@@ -160,6 +160,31 @@ describe('catalog integrity', () => {
     // string 3's G♯4 — the famous "strings out of pitch order" of pedal steel.
     expect(getTuning('ps-e9-nashville')!.midi).toEqual([47, 50, 52, 54, 56, 59, 64, 68, 63, 66]);
     expect(getTuning('ps-e9-nashville')!.reentrant).toBe(true);
+    // C6 neck per Peterson: C2..E4 with the famous re-entrant D4 on string 1.
+    expect(getTuning('ps-c6-swing-jazz')!.midi).toEqual([36, 41, 45, 48, 52, 55, 57, 60, 64, 62]);
+    expect(getTuning('ps-c6-swing-jazz')!.reentrant).toBe(true);
+    // B6 universal: D♯s at strings 8 and 4 (a B6 chord is B·D♯·F♯·G♯),
+    // re-entrant chromatic top like E9.
+    expect(getTuning('ps-b6-universal')!.midi).toEqual([47, 50, 51, 54, 56, 59, 63, 68, 63, 66]);
+    // Cinnamon Girl is DOUBLE drop D — both E strings down, high D drone.
+    expect(getTuning('young-cinnamon')!.midi).toEqual([38, 45, 50, 55, 59, 62]);
+    expect(getTuning('young-cinnamon')!.spellings[5]).toBe('D');
+    // Banjo in real string order: the g4 drone on the bass edge, re-entrant.
+    expect(getTuning('banjo')!.midi).toEqual([67, 50, 55, 59, 62]);
+    expect(getTuning('banjo')!.reentrant).toBe(true);
+    // Cuatro: only the top B is re-entrant; string 4 is A3, not A4.
+    expect(getTuning('cuatro')!.midi).toEqual([57, 62, 66, 59]);
+    // Charango: inside one octave, re-entrant, as its own description says.
+    expect(getTuning('charango')!.midi).toEqual([67, 72, 76, 69, 76]);
+    expect(getTuning('charango')!.reentrant).toBe(true);
+    // Keyed tunings are spelled in their key's accidental system:
+    // Drop B reads sharps under B minor (no G♭-for-F♯), Drop C flats under C minor.
+    expect(getTuning('drop-b')!.spellings).toEqual(['B', 'F♯', 'B', 'E', 'G♯', 'C♯']);
+    expect(getTuning('drop-b')!.preferFlats).toBeUndefined();
+    expect(getTuning('drop-db')!.spellings).toEqual(['C♯', 'G♯', 'C♯', 'F♯', 'A♯', 'D♯']);
+    expect(getTuning('drop-c')!.preferFlats).toBe(true);
+    // Radio Everything spells A♭ (not G♯) to match its C Phrygian key.
+    expect(getTuning('radio-everything')!.spellings).toEqual(['C', 'G', 'C', 'G', 'A♭', 'C']);
   });
 
   test('standard tuning is the guitar it claims to be', () => {

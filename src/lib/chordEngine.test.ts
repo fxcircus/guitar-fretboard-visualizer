@@ -258,6 +258,27 @@ describe('findSlantPositions', () => {
     expect(findSlantPositions(T('open-e').midi, [4, 11], 4)).toHaveLength(0);
   });
 
+  test('never proposes a fret-0 endpoint — the nut frets open strings, not the bar', () => {
+    // Sweep every tuning against a handful of targets; a "slant" touching
+    // fret 0 would be an open string, which is not a slant at all.
+    const targets: Array<[number[], number]> = [
+      [[0, 4, 7], 0], // C
+      [[1, 4, 8], 1], // C♯° — the lookup that used to auto-preview frets 1/0 on C6
+      [[4, 7, 11], 4], // Em
+      [[2, 5, 9], 2], // Dm
+    ];
+    getTuning('c6'); // sanity that the catalog is loaded
+    for (const t of ['c6', 'open-e', 'open-d', 'ukulele', 'ps-e9-nashville']) {
+      for (const [pcs, root] of targets) {
+        findSlantPositions(T(t).midi, pcs, root).forEach((s) => {
+          expect(Math.min(s.lowFret, s.highFret)).toBeGreaterThanOrEqual(1);
+        });
+      }
+    }
+    // ...and the C6 / C♯° lookup still gets a real suggestion.
+    expect(findSlantPositions(T('c6').midi, [1, 4, 8], 1).length).toBeGreaterThan(0);
+  });
+
   test('rankSlantsByNearness prefers slants near the bar', () => {
     const slants = findSlantPositions(T('open-e').midi, [4, 7, 11], 4);
     const ranked = rankSlantsByNearness(slants, 12);

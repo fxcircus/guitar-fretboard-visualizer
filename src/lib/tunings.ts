@@ -258,12 +258,11 @@ export const TUNINGS: Tuning[] = [
     name: "Drop Db",
     group: "drop",
     midi: [37, 44, 49, 54, 58, 63],
-    spellings: ["D♭", "A♭", "D♭", "G♭", "B♭", "E♭"],
+    spellings: ["C♯", "G♯", "C♯", "F♯", "A♯", "D♯"],
     description:
       "Drop D shifted down a half step (Drop C#) for extra weight while staying playable.",
     song: "\"Them Bones\" — Alice in Chains",
     key: { root: "C♯", scale: "Minor" },
-    preferFlats: true,
   },
   {
     id: "drop-c",
@@ -275,18 +274,18 @@ export const TUNINGS: Tuning[] = [
       "Drop D down a whole step — a huge nu-metal/metalcore rhythm tuning.",
     song: "\"Chop Suey!\" — System of a Down",
     key: { root: "C", scale: "Minor" },
+    preferFlats: true,
   },
   {
     id: "drop-b",
     name: "Drop B",
     group: "drop",
     midi: [35, 42, 47, 52, 56, 61],
-    spellings: ["B", "G♭", "B", "E", "A♭", "D♭"],
+    spellings: ["B", "F♯", "B", "E", "G♯", "C♯"],
     description:
       "Drop D down a minor third — heavy, tight and modern.",
     song: "\"Duality\" — Slipknot",
     key: { root: "B", scale: "Minor" },
-    preferFlats: true,
   },
   {
     id: "drop-bb",
@@ -295,7 +294,7 @@ export const TUNINGS: Tuning[] = [
     midi: [34, 41, 46, 51, 55, 60],
     spellings: ["B♭", "F", "B♭", "E♭", "G", "C"],
     description:
-      "Drop D down a fourth (Drop A#) for a crushing low register.",
+      "Drop D down a major third (Drop A#) for a crushing low register.",
     song: "\"Shadow Moses\" — Bring Me The Horizon",
     key: { root: "B♭", scale: "Minor" },
     preferFlats: true,
@@ -424,16 +423,16 @@ export const TUNINGS: Tuning[] = [
     description:
       "Drop D — the low string falls a whole step; the swaying Leslie-swirl chords ride over it.",
     song: "\"Black Hole Sun\" — Soundgarden",
-    key: { root: "D", scale: "Major" },
+    key: { root: "G", scale: "Mixolydian" },
   },
   {
     id: "young-cinnamon",
     name: "Young Cinnamon",
     group: "artist",
-    midi: [38, 45, 50, 55, 59, 64],
-    spellings: ["D", "A", "D", "G", "B", "E"],
+    midi: [38, 45, 50, 55, 59, 62],
+    spellings: ["D", "A", "D", "G", "B", "D"],
     description:
-      "Neil Young's crunch tuning — the low string drops a whole step for the riff's growl.",
+      "Neil Young's crunch tuning — double drop D: BOTH E strings fall a whole step, the high D droning over the riff and carrying the one-note solo.",
     song: "\"Cinnamon Girl\" — Neil Young",
     key: { root: "D", scale: "Major" },
   },
@@ -454,7 +453,7 @@ export const TUNINGS: Tuning[] = [
     midi: [38, 45, 50, 54, 57, 62],
     spellings: ["D", "A", "D", "F♯", "A", "D"],
     description:
-      "Joni's open-D base — a Dmaj7 rings on the open strings. On the record she capos 4 (sounding F# major); this is the no-capo tuning.",
+      "Joni's open-D base — a D major chord rings on the open strings. On the record she capos 4 (sounding F# major); this is the no-capo tuning.",
     song: "\"Both Sides, Now\" — Joni Mitchell",
   },
   {
@@ -472,11 +471,12 @@ export const TUNINGS: Tuning[] = [
     name: "Radio Everything",
     group: "artist",
     midi: [36, 43, 48, 55, 56, 60],
-    spellings: ["C", "G", "C", "G", "G♯", "C"],
+    spellings: ["C", "G", "C", "G", "A♭", "C"],
     description:
       "An \"Everything In Its Right Place\" voicing built around a C pedal on the top string (the same pedal-note trick as Pyramid Song's F#). Open strings ring C G C G G# C; hold the G → C bender to push the neutral G string up a fourth while the top C keeps ringing.",
     song: "\"Everything In Its Right Place\" — Radiohead",
     key: { root: "C", scale: "Phrygian" },
+    preferFlats: true,
   },
   {
     id: "white-keys",
@@ -520,6 +520,7 @@ export const TUNINGS: Tuning[] = [
       "Major with a flat 7th — the dominant, bluesy-rock colour. (The ♭7 has no open string in this set, so it shares the Ionian shape.)",
     song: "\"Sweet Home Alabama\" — Lynyrd Skynyrd",
     key: { root: "C", scale: "Mixolydian" },
+    preferFlats: true,
   },
   {
     id: "c-dorian",
@@ -601,6 +602,7 @@ export const TUNINGS: Tuning[] = [
       "The bright, tremolo-driven lead of Greek rebetiko and laïkó.",
     song: "\"Zorba's Dance (Sirtaki)\" — Mikis Theodorakis",
     key: { root: "D", scale: "Minor" },
+    preferFlats: true,
   },
   {
     id: "oud",
@@ -617,11 +619,12 @@ export const TUNINGS: Tuning[] = [
     id: "charango",
     name: "Charango",
     group: "world",
-    midi: [55, 60, 64, 69, 76],
+    midi: [67, 72, 76, 69, 76],
     spellings: ["G", "C", "E", "A", "E"],
     description:
       "A small Andean lute (traditionally armadillo-shell) with all strings inside one octave — the sparkle of Andean folk.",
     song: "\"El Cóndor Pasa\" — Los Incas",
+    reentrant: true,
   },
   {
     id: "saz-baglama",
@@ -677,7 +680,7 @@ export const TUNINGS: Tuning[] = [
     id: "cuatro",
     name: "Cuatro",
     group: "world",
-    midi: [69, 62, 66, 59],
+    midi: [57, 62, 66, 59],
     spellings: ["A", "D", "F♯", "B"],
     description:
       "Venezuela's 4-string (re-entrant) — the rhythmic-harmonic base of joropo and música llanera.",
@@ -700,11 +703,12 @@ export const TUNINGS: Tuning[] = [
     id: "banjo",
     name: "Banjo",
     group: "world",
-    midi: [50, 55, 59, 62, 67],
-    spellings: ["D", "G", "B", "D", "G"],
+    midi: [67, 50, 55, 59, 62],
+    spellings: ["G", "D", "G", "B", "D"],
     description:
       "A re-entrant 5-string with a high drone — the bluegrass sound.",
     song: "\"Foggy Mountain Breakdown\" — Earl Scruggs",
+    reentrant: true,
   },
   {
     id: "ps-e9-nashville",
@@ -735,24 +739,26 @@ export const TUNINGS: Tuning[] = [
     id: "ps-c6-swing-jazz",
     name: "C6 Swing/Jazz",
     group: "pedal-steel",
-    midi: [48, 53, 57, 60, 64, 67, 69, 72, 76, 86],
+    midi: [36, 41, 45, 48, 52, 55, 57, 60, 64, 62],
     spellings: ["C", "F", "A", "C", "E", "G", "A", "C", "E", "D"],
     description:
       "The \"back neck\" of a double-neck pedal steel — used for western swing and jazz's fuller chord voicings (Buddy Emmons, Cindy Cashdollar).",
     song: "western swing — Bob Wills; jazz steel — Buddy Emmons",
     key: { root: "C", scale: "Major" },
     copedent: "c6",
+    reentrant: true,
   },
   {
     id: "ps-b6-universal",
     name: "B6 Universal",
     group: "pedal-steel",
-    midi: [47, 50, 50, 54, 56, 59, 62, 68, 75, 78],
-    spellings: ["B", "D", "D", "F♯", "G♯", "B", "D", "G♯", "D♯", "F♯"],
+    midi: [47, 50, 51, 54, 56, 59, 63, 68, 63, 66],
+    spellings: ["B", "D", "D♯", "F♯", "G♯", "B", "D♯", "G♯", "D♯", "F♯"],
     description:
-      "Jeff Newman's single-neck tuning that fuses the E9 (country) and C6 (jazz/swing) necks, so one neck covers both.",
+      "Jeff Newman's universal tuning that fuses the E9 (country) and C6 (jazz/swing) necks so one neck covers both — here the 10-string cut of his 12-string original.",
     key: { root: "B", scale: "Major" },
     copedent: "e9",
+    reentrant: true,
   },
 ];
 

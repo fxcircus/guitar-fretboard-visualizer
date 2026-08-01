@@ -32,6 +32,7 @@ const RAW = process.argv[2] ?? resolve(HERE, 'vg800-raw.json');
 const D = JSON.parse(readFileSync(RAW, 'utf8'));
 
 const SHARP = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+const FLAT = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
 const LETTER_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
 const pcOf = (m) => ((m % 12) + 12) % 12;
@@ -192,7 +193,9 @@ const KEY_OVERRIDES = {
   'Led Rain': { root: 'G', scale: 'Major' },
   'Blur Song2': { root: 'D', scale: 'Major' },
   Schizophrenia: { root: 'G', scale: 'Major' }, // F♯ G A cluster = G-major neighbours
-  'SoundG Sun': { root: 'D', scale: 'Major' },
+  // Black Hole Sun's tonal centre is G (drop D is only the tuning); Mixolydian
+  // carries the song's F-natural harmony and keeps all six opens diatonic.
+  'SoundG Sun': { root: 'G', scale: 'Mixolydian' },
   'Young Cinnamon': { root: 'D', scale: 'Major' },
   'Radio Everything': { root: 'C', scale: 'Phrygian' }, // C–D♭maj7–E♭6 changes
   // World
@@ -264,14 +267,29 @@ const tipFor = (name) => D.TUNING_TIPS[name] ?? null;
 const MIDI_OVERRIDE = {
   // The VG-800 stores the cuatro's pitches sorted ascending (B3 D4 F♯4 A4),
   // which contradicts its own "A D F♯ B" spelling. The Venezuelan cuatro is
-  // re-entrant: strings 4→1 are A4 D4 F♯4 B3, with the B an octave down.
-  Cuatro: [69, 62, 66, 59],
+  // re-entrant: strings 4→1 are A3 D4 F♯4 B3 — only the B breaks the ascent,
+  // sitting an octave below where a linear tuning would put it.
+  Cuatro: [57, 62, 66, 59],
+  // The real charango lives inside ONE octave, re-entrant: courses 5→1 are
+  // G4 C5 E5/E4 A4 E5 (the VG-800 stored courses 5–3 an octave low). E5 is
+  // used for the octave-strung middle course so the lowest sounding note
+  // stays the G and bar-chord naming is unchanged.
+  Charango: [67, 72, 76, 69, 76],
   // The real Emmons E9 is re-entrant: the chromatic strings 2 and 1 are
   // D♯4 and F♯4, sitting BELOW string 3's G♯4 — not D♯5/F♯5 as the VG-800's
   // bounded shifter had to place them. Strings 10→1:
   // B2 D3 E3 F♯3 G♯3 B3 E4 G♯4 D♯4 F♯4.
   'E9 Nashville': [47, 50, 52, 54, 56, 59, 64, 68, 63, 66],
   'E9 Lanois': [47, 47, 52, 52, 56, 59, 64, 68, 63, 66],
+  // Same treatment for the other necks. C6 per Peterson's presets:
+  // C2 F2 A2 C3 E3 G3 A3 C4 E4 D4 — string 1's D is the famous re-entrant D,
+  // a whole step BELOW string 2's E (the VG-800 had it at an impossible D6).
+  'C6 Swing/Jazz': [36, 41, 45, 48, 52, 55, 57, 60, 64, 62],
+  // B6 universal, 10-string cut: B2 D3 D♯3 F♯3 G♯3 B3 D♯4 G♯4 D♯4 F♯4.
+  // The D naturals at strings 9 stay (the E9-style chromatic), but strings
+  // 8 and 4 are D♯ — a B6 chord is B·D♯·F♯·G♯ — and the top two strings are
+  // re-entrant D♯4/F♯4 like E9. (Spelling fixed to match in vg800-raw.json.)
+  'B6 Universal': [47, 50, 51, 54, 56, 59, 63, 68, 63, 66],
 };
 
 for (const fam of D.FAMILIES) {
@@ -376,12 +394,44 @@ if (problems.length) {
   process.exit(1);
 }
 
-// A tuning displays in flats when its own spelling does — so the whole board
-// (markers, chord names, string labels) stays in one accidental system.
-for (const t of out) {
-  const flats = t.spellings.filter((s) => s.includes('♭')).length;
-  const sharps = t.spellings.filter((s) => s.includes('♯')).length;
-  if (flats > sharps) t.preferFlats = true;
+// Accidental lean. For KEYED tunings the key signature decides — C♯ minor
+// reads in sharps, C minor in flats — and the string spellings are respelled
+// to match, so the key row, board markers, and string labels always share one
+// accidental system (Drop B must read B·F♯·B·E·G♯·C♯ under its B-minor key,
+// not the VG-800's flats). For derived tunings the source spelling decides,
+// as before.
+{
+  // Offset from a mode's root to its relative major (D Dorian → C, +10).
+  const REL_MAJOR = {
+    Major: 0, Mixolydian: 5, Dorian: 10, Minor: 3, 'Harmonic Minor': 3,
+    'Melodic Minor': 3, Phrygian: 8, Lydian: 7, Locrian: 1, 'Phrygian Dominant': 5,
+  };
+  // Signed key-signature size per major-key pitch class (+sharps / −flats);
+  // the enharmonic pcs default to the simpler signature, overridden below by
+  // the key root's own accidental (E♭ minor → G♭ major, 6 flats).
+  const MAJOR_LEAN = { 0: 0, 7: 1, 2: 2, 9: 3, 4: 4, 11: 5, 6: 6, 1: -5, 8: -4, 3: -3, 10: -2, 5: -1 };
+  const respell = (t, table) => {
+    t.spellings = t.midi.map((m) => table[pcOf(m)]);
+  };
+  for (const t of out) {
+    if (t.key) {
+      const rootPc = nameToPc(t.key.root);
+      const rel = (rootPc + (REL_MAJOR[t.key.scale] ?? 0)) % 12;
+      let lean = MAJOR_LEAN[rel];
+      if (t.key.root.includes('♯')) lean = Math.abs(lean);
+      if (t.key.root.includes('♭')) lean = -Math.abs(lean);
+      if (lean > 0) respell(t, SHARP);
+      else if (lean < 0) {
+        respell(t, FLAT);
+        t.preferFlats = true;
+      }
+      // lean 0 (C major / A minor / G mixolydian…): keep the source spelling
+    } else {
+      const flats = t.spellings.filter((s) => s.includes('♭')).length;
+      const sharps = t.spellings.filter((s) => s.includes('♯')).length;
+      if (flats > sharps) t.preferFlats = true;
+    }
+  }
 }
 
 // ── Emit ───────────────────────────────────────────────────────────────────
