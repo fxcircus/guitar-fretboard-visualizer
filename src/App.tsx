@@ -430,6 +430,12 @@ const EmbedScope = styled.div`
   button {
     font-family: inherit;
   }
+
+  /* The host sheet already pads the modal — keep the shell lean inside it. */
+  ${Shell} {
+    padding: 4px 0 10px;
+    gap: 10px;
+  }
 `;
 
 // ── Embed API (see src/embed.tsx) ──────────────────────────────────────────
@@ -937,18 +943,11 @@ const App: React.FC<AppProps> = ({
     </Card>
   );
 
-  const shell = (
-      <Shell>
-        <Header>
-          {!embedded && (
-            <TitleBlock>
-              <Title>Fretboard Visualizer</Title>
-              <NeckLabel>
-                {GROUP_LABELS[baseTuning.group]} · {stringCount} string
-              </NeckLabel>
-            </TitleBlock>
-          )}
-          <HeaderActions>
+  // The popover controls live in the header when standalone, and tuck into
+  // the panel's first row when embedded — the modal has no header band, so
+  // there's no dead space above the content.
+  const headerControls = (
+    <>
             <SoundWrap ref={soundWrapRef}>
               <HeadBtn
                 $open={soundOpen}
@@ -1143,8 +1142,22 @@ const App: React.FC<AppProps> = ({
                 </BoardPop>
               )}
             </SoundWrap>
-          </HeaderActions>
-        </Header>
+    </>
+  );
+
+  const shell = (
+      <Shell>
+        {!embedded && (
+          <Header>
+            <TitleBlock>
+              <Title>Fretboard Visualizer</Title>
+              <NeckLabel>
+                {GROUP_LABELS[baseTuning.group]} · {stringCount} string
+              </NeckLabel>
+            </TitleBlock>
+            <HeaderActions>{headerControls}</HeaderActions>
+          </Header>
+        )}
 
         <Panel>
           <Row>
@@ -1173,6 +1186,21 @@ const App: React.FC<AppProps> = ({
                 Map
               </ToggleBtn>
             </Toggle>
+            {embedded && (
+              // Right-aligned in the same row; the reserve keeps clear of the
+              // host modal's floating ✕ at the sheet corner.
+              <div
+                style={{
+                  marginLeft: 'auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  paddingRight: 30,
+                }}
+              >
+                {headerControls}
+              </div>
+            )}
           </Row>
 
           {(baseTuning.description || baseTuning.song) && (
