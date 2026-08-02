@@ -67,7 +67,7 @@ describe('URL state', () => {
   });
 
   test('pulls are clamped to the legal bend range', () => {
-    expect(decodeState('#p=99.-99.1').pulls).toEqual([4, -4, 1]);
+    expect(decodeState('#p=99.-99.1').pulls).toEqual([12, -12, 1]);
   });
 
   test('the encoding stays short for a default-ish board', () => {

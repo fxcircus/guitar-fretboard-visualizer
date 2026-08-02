@@ -452,6 +452,8 @@ export interface AppProps {
   embedTheme?: Theme;
   /** Host-pushed tuning (embedded only). */
   externalTuning?: ExternalTuning | null;
+  /** Host-pushed per-string bends, low string first (embedded only). */
+  externalPulls?: { vals: number[]; n: number } | null;
   /** Fires when the user picks a tuning inside the app. */
   onTuningChange?: (id: string) => void;
   registerEmbedHandlers?: (h: EmbedHandlers) => void;
@@ -461,6 +463,7 @@ const App: React.FC<AppProps> = ({
   embedded = false,
   embedTheme,
   externalTuning = null,
+  externalPulls = null,
   onTuningChange,
   registerEmbedHandlers,
 }) => {
@@ -608,6 +611,22 @@ const App: React.FC<AppProps> = ({
       };
     });
   }, [externalTuning]);
+
+  // Host-pushed bends (the VG-800's pedals and per-string benders) land as
+  // per-string pulls — the same engine the URL's p= param feeds. Idempotent,
+  // and ignored when the string counts disagree (a 6-string guitar bend has
+  // no home on a 10-string pedal-steel board).
+  useEffect(() => {
+    if (!embedded || !externalPulls) return;
+    setState((prev) => {
+      const count = resolveTuning(prev.tuningId, prev.customTuning).midi.length;
+      const src = externalPulls.vals.length === count ? externalPulls.vals : [];
+      const next = normalizePulls(src, count);
+      const cur = normalizePulls(prev.pulls, count);
+      if (next.every((v, i) => v === cur[i])) return prev;
+      return { ...prev, pulls: next };
+    });
+  }, [embedded, externalPulls]);
 
   // ── Tuning ───────────────────────────────────────────────────────────────
   const baseTuning = useMemo(

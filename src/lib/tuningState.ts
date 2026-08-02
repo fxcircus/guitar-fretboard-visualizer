@@ -12,9 +12,13 @@ import {
 } from './tunings';
 import { displayNote, midiPc } from './chordEngine';
 
-/** Behind-the-bar pulls (a string bend, or a pedal-steel pedal/lever). */
-export const PULL_MIN = -4;
-export const PULL_MAX = 4;
+/**
+ * Behind-the-bar pulls (a string bend, or a pedal-steel pedal/lever).
+ * ±12: the VG-800's per-string benders go a full octave (B-Bender presets,
+ * Nashville's octave drops), and the embedded board mirrors them.
+ */
+export const PULL_MIN = -12;
+export const PULL_MAX = 12;
 
 export function getDefaultTuning(): Tuning {
   return getTuning(DEFAULT_TUNING_ID)!;

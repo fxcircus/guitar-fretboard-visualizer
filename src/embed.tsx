@@ -103,6 +103,11 @@ export interface FretboardController {
   setTuning(id: string): void;
   /** Show an ad-hoc stack (absolute MIDI, low string first, 3–10 strings). */
   setCustomTuning(midiLowFirst: number[]): void;
+  /**
+   * Per-string bends in semitones, low string first ([] = none). Ignored when
+   * the length doesn't match the shown tuning's string count.
+   */
+  setPulls(semisLowFirst: number[]): void;
   setTheme(theme: Theme | 'dark' | 'light'): void;
   /** Close one open layer (menu/popover). True if something was closed. */
   closeTopLayer(): boolean;
@@ -122,11 +127,14 @@ export function mountFretboard(
   // Controller calls can land before React's first effect registers the state
   // setters (render is async) — buffer the latest push of each kind and flush
   // on registration, so an open-then-immediately-sync host never loses one.
+  type ExtPulls = { vals: number[]; n: number };
   const api: {
     setTheme?: (t: Theme) => void;
     setExt?: (e: ExternalTuning) => void;
+    setPulls?: (p: ExtPulls) => void;
     pendingTheme?: Theme;
     pendingExt?: ExternalTuning;
+    pendingPulls?: ExtPulls;
   } = {};
 
   const Host: React.FC = () => {
@@ -136,16 +144,21 @@ export function mountFretboard(
         ? { kind: 'id', id: opts.tuningId, n: ++seq }
         : null
     );
+    const [pulls, setPulls] = useState<ExtPulls | null>(null);
     useEffect(() => {
       api.setTheme = setTheme;
       api.setExt = setExt;
+      api.setPulls = setPulls;
       if (api.pendingTheme) setTheme(api.pendingTheme);
       if (api.pendingExt) setExt(api.pendingExt);
+      if (api.pendingPulls) setPulls(api.pendingPulls);
       api.pendingTheme = undefined;
       api.pendingExt = undefined;
+      api.pendingPulls = undefined;
       return () => {
         api.setTheme = undefined;
         api.setExt = undefined;
+        api.setPulls = undefined;
       };
     }, []);
     return (
@@ -153,6 +166,7 @@ export function mountFretboard(
         embedded
         embedTheme={theme}
         externalTuning={ext}
+        externalPulls={pulls}
         onTuningChange={opts.onTuningChange}
         registerEmbedHandlers={(h) => {
           handlers = h;
@@ -183,6 +197,12 @@ export function mountFretboard(
       const resolved = resolveTheme(t);
       if (api.setTheme) api.setTheme(resolved);
       else api.pendingTheme = resolved;
+    },
+    setPulls(semisLowFirst) {
+      if (!Array.isArray(semisLowFirst)) return;
+      const e = { vals: semisLowFirst.map((v) => Math.round(Number(v) || 0)), n: ++seq };
+      if (api.setPulls) api.setPulls(e);
+      else api.pendingPulls = e;
     },
     closeTopLayer() {
       return handlers?.closeTopLayer() ?? false;

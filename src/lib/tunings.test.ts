@@ -214,7 +214,8 @@ describe('tuning state', () => {
   });
 
   test('normalizePulls sizes and clamps', () => {
-    expect(normalizePulls([9, -9, 1], 4)).toEqual([4, -4, 1, 0]);
+    // ±12: octave benders (B-Bender presets, Nashville drops) are legal pulls.
+    expect(normalizePulls([15, -15, 1], 4)).toEqual([12, -12, 1, 0]);
     expect(normalizePulls(undefined, 3)).toEqual([0, 0, 0]);
   });
 });
