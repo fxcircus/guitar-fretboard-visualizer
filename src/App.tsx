@@ -1021,7 +1021,12 @@ const App: React.FC<AppProps> = ({
                   <div>
                     <Label as="span" style={{ opacity: 0.75 }}>Finish</Label>
                     <Toggle role="group" aria-label="Finish" style={{ marginTop: 6, flexWrap: 'wrap', width: 'fit-content' }}>
-                      {(Object.keys(FINISHES) as FinishName[]).map((k) => (
+                      {(Object.keys(FINISHES) as FinishName[])
+                        // Embedded (the VG-800 modal), the host supplies the UI
+                        // chrome — the Flat UI finish reads as a second theme
+                        // system there, so only the physical boards are offered.
+                        .filter((k) => !embedded || k !== 'flat')
+                        .map((k) => (
                         <ToggleBtn
                           key={k}
                           $active={boardPrefs.finish === k}
