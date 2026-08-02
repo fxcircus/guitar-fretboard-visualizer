@@ -32,6 +32,16 @@ export interface SteelGraph {
 
 export const STEEL_WORKLET_URL = new URL('./steel-processor.js', import.meta.url);
 
+// The standalone build ships the worklet as an asset next to the bundle; an
+// embedded build (foreign host page, different base path, worklet fetches
+// bypass service workers) supplies it another way — e.g. a Blob URL built
+// from the inlined source. The provider is lazy so nothing is allocated
+// until audio actually boots.
+let workletUrlProvider: (() => string | URL) | null = null;
+export function setWorkletUrl(provider: () => string | URL): void {
+  workletUrlProvider = provider;
+}
+
 // ── Generated spring-reverb impulse (reverbGen approach) ───────────────────
 // Independent noise per channel (that alone decorrelates the stereo image),
 // exponential decay to T60, 10 ms fade-in, highpassed at ~200 Hz with a
@@ -71,7 +81,7 @@ export async function createSteelGraph(
   ctx: BaseAudioContext,
   destination?: AudioNode
 ): Promise<SteelGraph> {
-  await ctx.audioWorklet.addModule(STEEL_WORKLET_URL);
+  await ctx.audioWorklet.addModule(workletUrlProvider ? workletUrlProvider() : STEEL_WORKLET_URL);
 
   const node = new AudioWorkletNode(ctx, 'steel-ks', {
     numberOfInputs: 0,

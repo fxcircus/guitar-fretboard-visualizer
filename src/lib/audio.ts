@@ -315,6 +315,20 @@ export class FretboardAudio {
     );
   }
 
+  /**
+   * Park the context once the damp tail has faded — the embedded modal keeps
+   * the graph mounted across opens, and a suspended context costs nothing
+   * (the reverb convolver otherwise burns CPU forever). Any play path calls
+   * resume() first, so this is always safe to do.
+   */
+  suspendSoon(): void {
+    window.setTimeout(() => {
+      if (this.ctx && this.ctx.state === 'running') {
+        this.ctx.suspend().catch(() => undefined);
+      }
+    }, 450);
+  }
+
   dispose(): void {
     this.stopAll();
     this.steel = null;

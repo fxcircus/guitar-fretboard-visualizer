@@ -67,6 +67,12 @@ const Chevron = styled.span<{ $open: boolean }>`
 `;
 
 const Panel = styled.div`
+  /* Portaled to document.body — outside any scoped wrapper, so it carries its
+     own ground rules (a host page may not use border-box). */
+  &,
+  & * {
+    box-sizing: border-box;
+  }
   position: fixed;
   z-index: 9999;
   background: ${({ theme }) => theme.colors.card};
@@ -171,9 +177,15 @@ interface Props {
   tuningId: string;
   current: Tuning;
   onSelect: (id: string) => void;
+  /**
+   * Embed hook: the host needs to know whether the menu is open (and be able
+   * to close it) so its Escape handling can peel layers instead of closing
+   * everything at once.
+   */
+  menuRef?: React.MutableRefObject<{ open: boolean; close: () => void } | null>;
 }
 
-const TuningPicker: React.FC<Props> = ({ tuningId, current, onSelect }) => {
+const TuningPicker: React.FC<Props> = ({ tuningId, current, onSelect, menuRef }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
@@ -191,6 +203,14 @@ const TuningPicker: React.FC<Props> = ({ tuningId, current, onSelect }) => {
     setQuery('');
     setOpen((o) => !o);
   };
+
+  useEffect(() => {
+    if (!menuRef) return;
+    menuRef.current = { open, close: () => setOpen(false) };
+    return () => {
+      menuRef.current = null;
+    };
+  }, [open, menuRef]);
 
   useEffect(() => {
     if (!open) return;

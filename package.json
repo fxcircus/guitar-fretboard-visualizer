@@ -12,6 +12,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:embed": "tsc -b && vite build --config vite.config.embed.ts",
+    "sync:vg800": "npm run build:embed && mkdir -p ../vg800_midi_control/fretboard && cp dist-embed/fretboard-embed.es.js ../vg800_midi_control/fretboard/",
     "lint": "oxlint",
     "test": "vitest run",
     "test:watch": "vitest",

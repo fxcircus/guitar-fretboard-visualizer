@@ -140,6 +140,36 @@ The whole board lives in the URL: tuning, bar position, selected grip, view,
 tone. Hit **Share** and send the link; it opens exactly what you were
 looking at. Your last board is also remembered locally.
 
+## Embedding it
+
+The app also builds as a self-contained ES module for embedding in another
+page — this is how it lives inside the
+[VG-800 controller](https://github.com/fxcircus/boss-vg800-midi-control-from-browser)
+as a modal:
+
+```bash
+npm run build:embed   # dist-embed/fretboard-embed.es.js (React bundled in)
+npm run sync:vg800    # build + copy into ../vg800_midi_control/fretboard/
+```
+
+```js
+const mod = await import('./fretboard-embed.es.js');
+const ctl = mod.mountFretboard(el, {
+  theme: mod.makeEmbedTheme({ base: 'dark', colors: {…} }), // or 'dark'|'light'
+  onTuningChange: (id) => {…},
+});
+ctl.setTuning('open-d');           // catalog id
+ctl.setCustomTuning([38,45,50,55,57,62]); // absolute MIDI, low string first
+ctl.setTheme(…); ctl.closeTopLayer(); ctl.stopAudio(); ctl.unmount();
+```
+
+Embedded, the app draws no global styles, never touches the URL hash or the
+persisted board state, and ships the steel AudioWorklet inline as a Blob (so
+it works from any path, offline, behind any service worker). Board prefs and
+volume still share the standalone app's localStorage keys on purpose.
+`tuningIdForName()` / `tuningNameForId()` map catalog ids to display names
+for host-side sync.
+
 ## Running it
 
 ```bash

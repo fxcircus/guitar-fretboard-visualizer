@@ -4,7 +4,7 @@ import styled, { ThemeProvider, createGlobalStyle, css, keyframes } from 'styled
 import Fretboard from './components/Fretboard';
 import TuningPicker from './components/TuningPicker';
 import { Chip, Hint, IconBtn, Label, Mono, Panel, Row, Toggle, ToggleBtn } from './components/ui';
-import { darkTheme, lightTheme } from './theme';
+import { darkTheme, lightTheme, type Theme } from './theme';
 
 import {
   chordLabel,
@@ -47,6 +47,7 @@ import {
   type ToneName,
 } from './lib/audio';
 import {
+  DEFAULT_STATE,
   MAX_FRET,
   loadState,
   saveState,
@@ -413,8 +414,68 @@ const Section = styled.div`
   border-top: 1px solid ${({ theme }) => `${theme.colors.border}66`};
 `;
 
-const App: React.FC = () => {
-  const [state, setState] = useState<AppState>(() => loadState());
+// Embedded, GlobalStyle stays off (it would restyle the host page's body and
+// every button) — this scoped wrapper carries the same ground rules instead.
+const EmbedScope = styled.div`
+  &,
+  & *,
+  & *::before,
+  & *::after {
+    box-sizing: border-box;
+  }
+  color: ${({ theme }) => theme.colors.text};
+  font-family: ${({ theme }) => theme.fontFamily};
+  -webkit-font-smoothing: antialiased;
+
+  button {
+    font-family: inherit;
+  }
+`;
+
+// ── Embed API (see src/embed.tsx) ──────────────────────────────────────────
+
+/** A host-driven tuning change; `n` makes every push distinct. */
+export type ExternalTuning =
+  | { kind: 'id'; id: string; n: number }
+  | { kind: 'custom'; midi: number[]; n: number };
+
+export interface EmbedHandlers {
+  /** Close one open layer (picker menu, popover). True if something closed. */
+  closeTopLayer: () => boolean;
+  stopAudio: () => void;
+}
+
+export interface AppProps {
+  /** Inside a host page: no GlobalStyle, no URL hash, no persisted board state. */
+  embedded?: boolean;
+  /** Full theme object supplied by the host (embedded only). */
+  embedTheme?: Theme;
+  /** Host-pushed tuning (embedded only). */
+  externalTuning?: ExternalTuning | null;
+  /** Fires when the user picks a tuning inside the app. */
+  onTuningChange?: (id: string) => void;
+  registerEmbedHandlers?: (h: EmbedHandlers) => void;
+}
+
+const App: React.FC<AppProps> = ({
+  embedded = false,
+  embedTheme,
+  externalTuning = null,
+  onTuningChange,
+  registerEmbedHandlers,
+}) => {
+  const [state, setState] = useState<AppState>(() => {
+    if (!embedded) return loadState();
+    // Seed the first render from the host's initial push so the board never
+    // flashes the default tuning before the effects flush.
+    const s = { ...DEFAULT_STATE };
+    if (externalTuning?.kind === 'id') s.tuningId = externalTuning.id;
+    else if (externalTuning?.kind === 'custom') {
+      s.tuningId = CUSTOM_TUNING_ID;
+      s.customTuning = externalTuning.midi;
+    }
+    return s;
+  });
   const [themeName, setThemeName] = useState<'dark' | 'light'>(() => {
     try {
       const saved = localStorage.getItem('gfv.theme');
@@ -474,15 +535,22 @@ const App: React.FC = () => {
     setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  useEffect(() => saveState(state), [state]);
-  useEffect(() => watchHash(setState), []);
+  // Embedded, the board never touches the host's URL or gfv.state.v1 — the
+  // host drives the tuning and everything else stays in-memory.
   useEffect(() => {
+    if (!embedded) saveState(state);
+  }, [state, embedded]);
+  useEffect(() => (embedded ? undefined : watchHash(setState)), [embedded]);
+  useEffect(() => {
+    // Embedded, themeName is dead state (theme comes from the host) — writing
+    // it would pin the standalone app's first-visit OS-preference probe.
+    if (embedded) return;
     try {
       localStorage.setItem('gfv.theme', themeName);
     } catch {
       /* ignore */
     }
-  }, [themeName]);
+  }, [themeName, embedded]);
   useEffect(() => {
     try {
       localStorage.setItem('gfv.volume', String(volume));
@@ -511,6 +579,35 @@ const App: React.FC = () => {
       window.removeEventListener('keydown', onKey);
     };
   }, [soundOpen, boardOpen]);
+
+  // A host-pushed tuning replaces the board wholesale (bar home, grip reset).
+  // Re-pushes of the tuning already showing are no-ops, so reopening the
+  // modal never yanks the bar away from where the user parked it.
+  useEffect(() => {
+    if (!externalTuning) return;
+    setState((prev) => {
+      if (externalTuning.kind === 'id') {
+        if (prev.tuningId === externalTuning.id) return prev;
+        return { ...prev, tuningId: externalTuning.id, pulls: [], chip: 0, barFret: 0 };
+      }
+      const midi = externalTuning.midi;
+      if (
+        prev.tuningId === CUSTOM_TUNING_ID &&
+        prev.customTuning.length === midi.length &&
+        prev.customTuning.every((m, i) => m === midi[i])
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        tuningId: CUSTOM_TUNING_ID,
+        customTuning: midi,
+        pulls: [],
+        chip: 0,
+        barFret: 0,
+      };
+    });
+  }, [externalTuning]);
 
   // ── Tuning ───────────────────────────────────────────────────────────────
   const baseTuning = useMemo(
@@ -722,6 +819,9 @@ const App: React.FC = () => {
     } else {
       patch({ tuningId: id, pulls: [], chip: 0 });
     }
+    // User-initiated only — host pushes go through externalTuning and never
+    // loop back out, so the host needs no echo suppression on this side.
+    onTuningChange?.(id);
   };
 
   const editString = (i: number, delta: number) => {
@@ -743,7 +843,39 @@ const App: React.FC = () => {
 
   const setBarFret = useCallback((f: number) => patch({ barFret: f }), [patch]);
 
-  const theme = themeName === 'dark' ? darkTheme : lightTheme;
+  const theme = embedded
+    ? (embedTheme ?? darkTheme)
+    : themeName === 'dark'
+      ? darkTheme
+      : lightTheme;
+
+  // Embed plumbing: the host's Escape interceptor peels one layer at a time,
+  // and the modal's close hook silences the strings. Re-registered every
+  // render so the closures always see current state.
+  const pickerMenuRef = useRef<{ open: boolean; close: () => void } | null>(null);
+  useEffect(() => {
+    registerEmbedHandlers?.({
+      closeTopLayer: () => {
+        if (pickerMenuRef.current?.open) {
+          pickerMenuRef.current.close();
+          return true;
+        }
+        if (soundOpen) {
+          setSoundOpen(false);
+          return true;
+        }
+        if (boardOpen) {
+          setBoardOpen(false);
+          return true;
+        }
+        return false;
+      },
+      stopAudio: () => {
+        audioRef.current?.stopAll();
+        audioRef.current?.suspendSoon();
+      },
+    });
+  });
 
   // `stagger` cascades the pop-in when a batch of cards mounts at once;
   // `out` runs the same cascade in reverse while the drawer collapses.
@@ -786,17 +918,17 @@ const App: React.FC = () => {
     </Card>
   );
 
-  return (
-    <ThemeProvider theme={theme}>
-      <GlobalStyle />
+  const shell = (
       <Shell>
         <Header>
-          <TitleBlock>
-            <Title>Fretboard Visualizer</Title>
-            <NeckLabel>
-              {GROUP_LABELS[baseTuning.group]} · {stringCount} string
-            </NeckLabel>
-          </TitleBlock>
+          {!embedded && (
+            <TitleBlock>
+              <Title>Fretboard Visualizer</Title>
+              <NeckLabel>
+                {GROUP_LABELS[baseTuning.group]} · {stringCount} string
+              </NeckLabel>
+            </TitleBlock>
+          )}
           <HeaderActions>
             <SoundWrap ref={soundWrapRef}>
               <HeadBtn
@@ -863,13 +995,15 @@ const App: React.FC = () => {
                 </SoundPop>
               )}
             </SoundWrap>
-            <HeadBtn
-              onClick={() => setThemeName((t) => (t === 'dark' ? 'light' : 'dark'))}
-              aria-label={themeName === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-              title={themeName === 'dark' ? 'Light theme' : 'Dark theme'}
-            >
-              {themeName === 'dark' ? <SunIcon /> : <MoonIcon />}
-            </HeadBtn>
+            {!embedded && (
+              <HeadBtn
+                onClick={() => setThemeName((t) => (t === 'dark' ? 'light' : 'dark'))}
+                aria-label={themeName === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                title={themeName === 'dark' ? 'Light theme' : 'Dark theme'}
+              >
+                {themeName === 'dark' ? <SunIcon /> : <MoonIcon />}
+              </HeadBtn>
+            )}
             <SoundWrap ref={boardWrapRef}>
               <HeadBtn
                 $open={boardOpen}
@@ -994,6 +1128,7 @@ const App: React.FC = () => {
               tuningId={state.tuningId}
               current={baseTuning}
               onSelect={handleTuningChange}
+              menuRef={pickerMenuRef}
             />
 
             <Toggle role="group" aria-label="Neck view">
@@ -1137,6 +1272,18 @@ const App: React.FC = () => {
           board={boardPrefs}
         />
       </Shell>
+  );
+
+  return (
+    <ThemeProvider theme={theme}>
+      {embedded ? (
+        <EmbedScope>{shell}</EmbedScope>
+      ) : (
+        <>
+          <GlobalStyle />
+          {shell}
+        </>
+      )}
     </ThemeProvider>
   );
 };
